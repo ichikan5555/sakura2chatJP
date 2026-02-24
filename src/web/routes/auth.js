@@ -20,57 +20,57 @@ router.get('/test', (req, res) => {
 });
 
 // POST /api/auth/admin/login - Admin login
-router.post('/admin/login', (req, res) => {
+router.post('/admin/login', async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'パスワードを入力してください' });
-  if (!verifyAdminPassword(password)) return res.status(401).json({ error: 'パスワードが間違っています' });
-  const session = createSession('admin', null);
+  if (!(await verifyAdminPassword(password))) return res.status(401).json({ error: 'パスワードが間違っています' });
+  const session = await createSession('admin', null);
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`);
   res.json({ success: true, userType: 'admin' });
 });
 
 // POST /api/auth/user/login - User login
-router.post('/user/login', (req, res) => {
+router.post('/user/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'ユーザーIDとパスワードを入力してください' });
   }
 
-  const user = verifyUserPassword(username, password);
+  const user = await verifyUserPassword(username, password);
   if (!user) {
     return res.status(401).json({ error: 'ユーザーIDまたはパスワードが間違っています' });
   }
 
-  const session = createSession('user', user.id);
+  const session = await createSession('user', user.id);
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`);
   logger.info(`User login: ${username}`);
   res.json({ success: true, userType: 'user', userId: user.id, username: user.username });
 });
 
 // POST /api/auth/login - Legacy admin login (for backward compatibility)
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'パスワードを入力してください' });
-  if (!verifyAdminPassword(password)) return res.status(401).json({ error: 'パスワードが間違っています' });
-  const session = createSession('admin', null);
+  if (!(await verifyAdminPassword(password))) return res.status(401).json({ error: 'パスワードが間違っています' });
+  const session = await createSession('admin', null);
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`);
   res.json({ success: true, userType: 'admin' });
 });
 
 // POST /api/auth/logout
-router.post('/logout', (req, res) => {
-  if (req.sessionId) deleteSession(req.sessionId);
+router.post('/logout', async (req, res) => {
+  if (req.sessionId) await deleteSession(req.sessionId);
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`);
   res.json({ success: true });
 });
 
 // GET /api/auth/me
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   if (req.auth.isAdmin) {
     return res.json({ loggedIn: true, userType: 'admin' });
   }
   if (req.auth.isUser) {
-    const user = getUserById(req.auth.userId);
+    const user = await getUserById(req.auth.userId);
     return res.json({
       loggedIn: true,
       userType: 'user',

@@ -23,38 +23,39 @@ pool.on('error', (err) => {
 });
 
 /**
- * Initialize database schema
+ * Initialize database (verify connection only)
+ * Schema should be created manually in Supabase
  */
 export async function initializeDatabase() {
   try {
-    console.log('Initializing PostgreSQL database...');
+    console.log('Verifying PostgreSQL database connection...');
 
-    // Read schema file
-    const schemaPath = join(__dirname, 'schema.postgres.sql');
-    const schema = readFileSync(schemaPath, 'utf8');
+    // Test connection
+    await pool.query('SELECT 1');
+    console.log('✅ Database connection verified');
 
-    // Execute schema
-    await pool.query(schema);
+    // Create default admin user if not exists (with proper error handling)
+    try {
+      const adminCheck = await pool.query('SELECT id FROM admin WHERE id = 1');
+      if (adminCheck.rows.length === 0) {
+        const { scryptSync, randomBytes } = await import('crypto');
+        const salt = randomBytes(16).toString('hex');
+        const hash = scryptSync('admin123', salt, 64).toString('hex');
+        const passwordHash = `${salt}:${hash}`;
 
-    console.log('Database schema initialized');
-
-    // Create default admin user if not exists
-    const adminCheck = await pool.query('SELECT id FROM admin WHERE id = 1');
-    if (adminCheck.rows.length === 0) {
-      // Import scrypt for password hashing
-      const { scryptSync, randomBytes } = await import('crypto');
-      const salt = randomBytes(16).toString('hex');
-      const hash = scryptSync('admin123', salt, 64).toString('hex');
-      const passwordHash = `${salt}:${hash}`;
-
-      await pool.query('INSERT INTO admin (id, password_hash) VALUES (1, $1)', [passwordHash]);
-      console.log('Default admin user created (password: admin123)');
+        await pool.query('INSERT INTO admin (id, password_hash) VALUES (1, $1)', [passwordHash]);
+        console.log('✅ Default admin user created (password: admin123)');
+      } else {
+        console.log('✅ Admin user already exists');
+      }
+    } catch (err) {
+      console.warn('Admin user setup skipped:', err.message);
     }
 
-    console.log('Database initialization complete');
+    console.log('✅ Database initialization complete');
   } catch (error) {
-    console.error('Database initialization error:', error);
-    throw error;
+    console.error('❌ Database initialization error:', error);
+    // Don't throw - allow app to start even if DB connection fails
   }
 }
 
