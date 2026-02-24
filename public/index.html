@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>さくらメール → Chatwork 転送</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+    header { background: #333; color: white; padding: 1rem 2rem; }
+    header h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    nav { display: flex; gap: 1rem; }
+    nav a { color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 4px; }
+    nav a:hover { background: #555; }
+    nav a.active { background: #0066cc; }
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; }
+    .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card h2 { margin-bottom: 1rem; color: #333; }
+    .status { display: flex; gap: 2rem; flex-wrap: wrap; }
+    .status-item { flex: 1; min-width: 200px; }
+    .status-item strong { display: block; color: #666; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .status-item span { font-size: 1.5rem; font-weight: bold; }
+    .success { color: #28a745; }
+    .error { color: #dc3545; }
+    .warning { color: #ffc107; }
+    button { background: #0066cc; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #0052a3; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    button.secondary { background: #6c757d; }
+    button.secondary:hover { background: #5a6268; }
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; margin-top: 0.25rem; }
+    label { display: block; margin-bottom: 1rem; font-weight: 500; }
+    .form-group { margin-bottom: 1.5rem; }
+    .alert { padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #ddd; }
+    th { background: #f8f9fa; font-weight: 600; }
+    .hidden { display: none; }
+    .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem; font-weight: 500; }
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-error { background: #f8d7da; color: #721c24; }
+    .badge-warning { background: #fff3cd; color: #856404; }
+    .badge-info { background: #d1ecf1; color: #0c5460; }
+    .btn-group { display: flex; gap: 0.5rem; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal.show { display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; border-radius: 8px; padding: 2rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-header h3 { margin: 0; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: #666; }
+
+    /* ログインページ */
+    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .login-card { background: white; border-radius: 12px; padding: 3rem; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px; width: 90%; }
+    .login-card h1 { color: #333; margin-bottom: 0.5rem; font-size: 1.75rem; }
+    .login-card p { color: #666; margin-bottom: 2rem; }
+    .login-card .form-group { margin-bottom: 1.5rem; }
+    .login-card label { color: #333; font-weight: 500; }
+    .login-card input { padding: 0.875rem; font-size: 1rem; }
+    .login-card button { width: 100%; padding: 1rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <!-- ログインページ -->
+  <div id="login-page" class="hidden">
+    <div class="login-card">
+      <h1>📧 さくらメール → Chatwork</h1>
+      <p>管理画面にログイン</p>
+      <div id="login-alert"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label>パスワード <input type="password" id="login-password" required autofocus></label>
+        </div>
+        <button type="submit">ログイン</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- メインアプリ -->
+  <div id="main-app" class="hidden">
+    <header>
+      <h1>📧 さくらメール → Chatwork 転送</h1>
+      <nav id="main-nav">
+        <a href="#/" data-route="/" class="active">ダッシュボード</a>
+        <a href="#/accounts" data-route="/accounts">アカウント管理</a>
+        <a href="#/rules" data-route="/rules">ルール管理</a>
+        <a href="#/logs" data-route="/logs">転送ログ</a>
+        <a href="#/settings" data-route="/settings">設定</a>
+        <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
+      </nav>
+    </header>
+    <main id="app"></main>
+  </div>
+
+  <!-- アカウント追加・編集モーダル -->
+  <div id="account-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">アカウント追加</h3>
+        <button class="modal-close" onclick="closeAccountModal()">×</button>
+      </div>
+      <form id="account-form">
+        <input type="hidden" id="account-id">
+        <div class="form-group">
+          <label>アカウント名 <input type="text" id="account-name" required></label>
+        </div>
+        <div class="form-group">
+          <label>IMAPサーバー <input type="text" id="account-host" required placeholder="monoshare.sakura.ne.jp"></label>
+        </div>
+        <div class="form-group">
+          <label>ポート <input type="number" id="account-port" value="993" required></label>
+        </div>
+        <div class="form-group">
+          <label>ユーザー名（メールアドレス） <input type="text" id="account-username" required placeholder="user@example.com"></label>
+        </div>
+        <div class="form-group">
+          <label>パスワードモード
+            <select id="account-password-mode" onchange="togglePasswordFields()">
+              <option value="manual">手動入力</option>
+              <option value="derive">自動生成（社内ルール）</option>
+            </select>
+          </label>
+        </div>
+        <div id="manual-password-group" class="form-group">
+          <label>パスワード <input type="password" id="account-password"></label>
+        </div>
+        <div id="derive-password-group" class="form-group hidden">
+          <label>PREFIX（固定） <input type="text" id="account-password-prefix" placeholder="araki0404."></label>
+          <label>SUFFIX（固定） <input type="text" id="account-password-suffix" placeholder="junpei0822."></label>
+          <small style="color: #666; display: block; margin-top: 0.5rem;">
+            パスワード = PREFIX + (メールアドレスの先頭1文字 + 末尾1文字 + ".") + SUFFIX<br>
+            例: e14suger@... → araki0404.<strong>er.</strong>junpei0822.
+          </small>
+        </div>
+        <div class="form-group">
+          <label>監視速度
+            <select id="account-poll-speed">
+              <option value="high">⚡ 高速（30秒）</option>
+              <option value="normal" selected>🔄 通常（60秒）</option>
+              <option value="slow">🐢 ゆっくり（90秒）</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="account-enabled" checked> 有効</label>
+        </div>
+        <div class="btn-group">
+          <button type="submit">保存</button>
+          <button type="button" class="secondary" onclick="closeAccountModal()">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    let currentRoute = '/';
+    let isLoggedIn = false;
+
+    // ログイン処理
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('login-password').value;
+      const alertDiv = document.getElementById('login-alert');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          isLoggedIn = true;
+          document.getElementById('login-page').classList.add('hidden');
+          document.getElementById('main-app').classList.remove('hidden');
+          navigate(window.location.hash.slice(1) || '/');
+        } else {
+          alertDiv.innerHTML = '<div class="alert alert-error">パスワードが間違っています</div>';
+        }
+      } catch (err) {
+        alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
+      }
+    });
+
+    // ログアウト
+    document.getElementById('logout-btn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
+      isLoggedIn = false;
+      document.getElementById('main-app').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-alert').innerHTML = '';
+    });
+
+    // Router
+    function navigate(route) {
+      currentRoute = route;
+      window.location.hash = route;
+      document.querySelectorAll('nav a[data-route]').forEach(a => {
+        a.classList.toggle('active', a.dataset.route === route);
+      });
+      render();
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      switch(currentRoute) {
+        case '/': renderDashboard(app); break;
+        case '/accounts': renderAccounts(app); break;
+        case '/rules': renderRules(app); break;
+        case '/logs': renderLogs(app); break;
+        case '/settings': renderSettings(app); break;
+        default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
+      }
+    }
+
+    // Dashboard
+    async function renderDashboard(app) {
+      const res = await fetch(`${API_BASE}/api/status`);
+      const data = await res.json();
+
+      const accountRows = data.accounts.map(acc => `
+        <tr>
+          <td>${acc.name}</td>
+          <td>${acc.username}</td>
+          <td><span class="badge badge-info">${acc.poll_speed === 'high' ? '⚡ 高速' : acc.poll_speed === 'slow' ? '🐢 ゆっくり' : '🔄 通常'}</span></td>
+          <td><span class="badge ${acc.status === 'running' ? 'badge-success' : 'badge-error'}">${acc.status}</span></td>
+          <td>${acc.lastError || '-'}</td>
+        </tr>
+      `).join('');
+
+      app.innerHTML = `
+        <div class="card">
+          <h2>アカウント状態</h2>
+          <table>
+            <thead>
+              <tr><th>名前</th><th>ユーザー名</th><th>監視速度</th><th>状態</th><th>エラー</th></tr>
+            </thead>
+            <tbody>${accountRows || '<tr><td colspan="5">アカウントが登録されていません</td></tr>'}</tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h2>過去24時間の統計</h2>
+          <div class="status">
+            <div class="status-item">
+              <strong>送信成功</strong>
+              <span class="success">${data.stats24h.sent}</span>
+            </div>
+            <div class="status-item">
+              <strong>送信失敗</strong>
+              <span class="error">${data.stats24h.failed}</span>
+            </div>
+            <div class="status-item">
+              <strong>スキップ</strong>
+              <span class="warning">${data.stats24h.skipped}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Accounts
+    async function renderAccounts(app) {
+      const res = await fetch(`${API_BASE}/api/accounts`);
+      const accounts = await res.json();
+
+      const rows = accounts.map(acc => `
+        <tr>
+          <td>${acc.id}</td>
+          <td>${acc.name}</td>
+          <td>${acc.username}</td>
+          <td><span class="badge badge-info">${acc.poll_speed === 'high' ? '⚡ 高速' : acc.poll_speed === 'slow' ? '🐢 ゆっくり' : '🔄 通常'}</span></td>
+          <td><span class="badge ${acc.enabled ? 'badge-success' : 'badge-warning'}">${acc.enabled ? '有効' : '無効'}</span></td>
+          <td>
+            <div class="btn-group">
+              <button class="secondary" onclick="editAccount(${acc.id})">編集</button>
+              <button class="secondary" onclick="testAccount(${acc.id})">接続テスト</button>
+              <button class="danger" onclick="deleteAccount(${acc.id}, '${acc.name}')">削除</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      app.innerHTML = `
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>アカウント管理</h2>
+            <button onclick="openAccountModal()">＋ アカウント追加</button>
+          </div>
+          <table>
+            <thead>
+              <tr><th>ID</th><th>名前</th><th>ユーザー名</th><th>監視速度</th><th>状態</th><th>操作</th></tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="6">アカウントがありません</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Settings
+    async function renderSettings(app) {
+      const res = await fetch(`${API_BASE}/api/settings`);
+      const settings = await res.json();
+
+      app.innerHTML = `
+        <div class="card">
+          <h2>管理者設定</h2>
+          <div id="password-alert"></div>
+          <form id="password-form">
+            <div class="form-group">
+              <label>現在のパスワード <input type="password" id="current-password" required></label>
+            </div>
+            <div class="form-group">
+              <label>新しいパスワード <input type="password" id="new-password" required></label>
+            </div>
+            <div class="form-group">
+              <label>新しいパスワード（確認） <input type="password" id="new-password-confirm" required></label>
+            </div>
+            <button type="submit">パスワードを変更</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Chatwork 設定</h2>
+          <div id="chatwork-alert"></div>
+          <form id="chatwork-form">
+            <div class="form-group">
+              <label>Chatwork APIトークン
+                <input type="text" id="chatwork-token" value="${settings['chatwork.apiToken'] || ''}" placeholder="APIトークンを入力">
+              </label>
+              <small style="color: #666;">Chatworkの「API Token」ページから取得してください</small>
+            </div>
+            <button type="submit">保存</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>ポーリング設定</h2>
+          <p>※ポーリング間隔は各アカウント個別に設定できます（アカウント管理画面）</p>
+        </div>
+      `;
+
+      // パスワード変更フォーム
+      document.getElementById('password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertDiv = document.getElementById('password-alert');
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const newPasswordConfirm = document.getElementById('new-password-confirm').value;
+
+        if (newPassword !== newPasswordConfirm) {
+          alertDiv.innerHTML = '<div class="alert alert-error">新しいパスワードが一致しません</div>';
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, newPassword })
+          });
+
+          const result = await res.json();
+
+          if (result.success) {
+            alertDiv.innerHTML = '<div class="alert alert-success">パスワードを変更しました</div>';
+            document.getElementById('password-form').reset();
+          } else {
+            alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'パスワード変更に失敗しました'}</div>`;
+          }
+        } catch (err) {
+          alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+        }
+      });
+
+      // Chatwork設定フォーム
+      document.getElementById('chatwork-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertDiv = document.getElementById('chatwork-alert');
+        const token = document.getElementById('chatwork-token').value;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/settings`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 'chatwork.apiToken': token })
+          });
+
+          const result = await res.json();
+
+          if (result.success) {
+            alertDiv.innerHTML = '<div class="alert alert-success">設定を保存しました</div>';
+          } else {
+            alertDiv.innerHTML = '<div class="alert alert-error">保存に失敗しました</div>';
+          }
+        } catch (err) {
+          alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+        }
+      });
+    }
+
+    // Account Modal
+    function openAccountModal(accountId = null) {
+      const modal = document.getElementById('account-modal');
+      const form = document.getElementById('account-form');
+      const title = document.getElementById('modal-title');
+
+      form.reset();
+      document.getElementById('account-id').value = '';
+      title.textContent = 'アカウント追加';
+      togglePasswordFields();
+
+      if (accountId) {
+        fetch(`${API_BASE}/api/accounts/${accountId}`).then(r => r.json()).then(acc => {
+          document.getElementById('account-id').value = acc.id;
+          document.getElementById('account-name').value = acc.name;
+          document.getElementById('account-host').value = acc.host;
+          document.getElementById('account-port').value = acc.port;
+          document.getElementById('account-username').value = acc.username;
+          document.getElementById('account-password-mode').value = acc.password_mode;
+          document.getElementById('account-password-prefix').value = acc.password_prefix || '';
+          document.getElementById('account-password-suffix').value = acc.password_suffix || '';
+          document.getElementById('account-poll-speed').value = acc.poll_speed;
+          document.getElementById('account-enabled').checked = acc.enabled;
+          title.textContent = 'アカウント編集';
+          togglePasswordFields();
+        });
+      }
+
+      modal.classList.add('show');
+    }
+
+    function closeAccountModal() {
+      document.getElementById('account-modal').classList.remove('show');
+    }
+
+    function togglePasswordFields() {
+      const mode = document.getElementById('account-password-mode').value;
+      const manualGroup = document.getElementById('manual-password-group');
+      const deriveGroup = document.getElementById('derive-password-group');
+
+      if (mode === 'manual') {
+        manualGroup.classList.remove('hidden');
+        deriveGroup.classList.add('hidden');
+      } else {
+        manualGroup.classList.add('hidden');
+        deriveGroup.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('account-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById('account-id').value;
+      const data = {
+        name: document.getElementById('account-name').value,
+        host: document.getElementById('account-host').value,
+        port: parseInt(document.getElementById('account-port').value),
+        username: document.getElementById('account-username').value,
+        password_mode: document.getElementById('account-password-mode').value,
+        poll_speed: document.getElementById('account-poll-speed').value,
+        enabled: document.getElementById('account-enabled').checked ? 1 : 0,
+      };
+
+      if (data.password_mode === 'manual') {
+        const pwd = document.getElementById('account-password').value;
+        if (pwd) data.password = pwd;
+      } else {
+        const prefix = document.getElementById('account-password-prefix').value;
+        const suffix = document.getElementById('account-password-suffix').value;
+        if (prefix) data.password_prefix = prefix;
+        if (suffix) data.password_suffix = suffix;
+      }
+
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${API_BASE}/api/accounts/${id}` : `${API_BASE}/api/accounts`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        closeAccountModal();
+        navigate('/accounts');
+      } else {
+        const err = await res.json();
+        alert('エラー: ' + err.error);
+      }
+    });
+
+    async function editAccount(id) {
+      openAccountModal(id);
+    }
+
+    async function deleteAccount(id, name) {
+      if (!confirm(`アカウント「${name}」を削除しますか？`)) return;
+
+      const res = await fetch(`${API_BASE}/api/accounts/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        navigate('/accounts');
+      } else {
+        alert('削除に失敗しました');
+      }
+    }
+
+    async function testAccount(id) {
+      const res = await fetch(`${API_BASE}/api/accounts/${id}/test`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success) {
+        alert(`接続成功！\nメッセージ数: ${result.messageCount}`);
+      } else {
+        alert(`接続失敗\nエラー: ${result.error}`);
+      }
+    }
+
+    // Rules (simplified)
+    async function renderRules(app) {
+      const res = await fetch(`${API_BASE}/api/rules`);
+      const rules = await res.json();
+      app.innerHTML = `
+        <div class="card">
+          <h2>転送ルール</h2>
+          <p>ルール数: ${rules.length}</p>
+          <p>詳細なルール管理UIは省略しています。APIエンドポイントは実装済みです。</p>
+          <p>CSVインポート/エクスポート: <code>/api/rules/bulk/import</code> および <code>/api/rules/bulk/export</code></p>
+        </div>
+      `;
+    }
+
+    // Logs
+    async function renderLogs(app) {
+      const res = await fetch(`${API_BASE}/api/logs?limit=20`);
+      const logs = await res.json();
+      const rows = logs.map(log => `
+        <tr>
+          <td>${log.processed_at}</td>
+          <td>${log.account_id}</td>
+          <td>${log.sender || 'N/A'}</td>
+          <td>${log.subject || 'N/A'}</td>
+          <td><span class="badge ${log.status === 'sent' ? 'badge-success' : log.status === 'failed' ? 'badge-error' : 'badge-warning'}">${log.status}</span></td>
+        </tr>
+      `).join('');
+      app.innerHTML = `
+        <div class="card">
+          <h2>転送ログ（最新20件）</h2>
+          <table>
+            <thead>
+              <tr><th>日時</th><th>アカウントID</th><th>送信者</th><th>件名</th><th>状態</th></tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="5">ログがありません</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Init
+    window.addEventListener('hashchange', () => {
+      if (isLoggedIn) {
+        const route = window.location.hash.slice(1) || '/';
+        navigate(route);
+      }
+    });
+
+    // Check auth
+    fetch(`${API_BASE}/api/auth/me`).then(res => res.json()).then(data => {
+      if (data.loggedIn) {
+        isLoggedIn = true;
+        document.getElementById('main-app').classList.remove('hidden');
+        navigate(window.location.hash.slice(1) || '/');
+      } else {
+        document.getElementById('login-page').classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "sakura2chatjp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sakura Mail (IMAP) to Chatwork auto-forwarding system",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --experimental-sqlite src/index.js",
+    "dev": "node --experimental-sqlite --watch src/index.js"
+  },
+  "keywords": ["imap", "chatwork", "mail-forwarding", "sakura"],
+  "author": "JP.Company",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "imapflow": "^1.0.166",
+    "mailparser": "^3.7.1",
+    "winston": "^3.19.0"
+  }
+}
