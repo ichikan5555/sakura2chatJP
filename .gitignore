@@ -8,3 +8,7 @@ credentials/
 *.db
 *.db-shm
 *.db-wal
+public/index.html.backup
+*.png
+*.backup
+.env

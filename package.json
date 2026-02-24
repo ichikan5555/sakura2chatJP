@@ -8,7 +8,12 @@
     "start": "node --experimental-sqlite src/index.js",
     "dev": "node --experimental-sqlite --watch src/index.js"
   },
-  "keywords": ["imap", "chatwork", "mail-forwarding", "sakura"],
+  "keywords": [
+    "imap",
+    "chatwork",
+    "mail-forwarding",
+    "sakura"
+  ],
   "author": "JP.Company",
   "license": "ISC",
   "engines": {
@@ -19,6 +24,10 @@
     "express": "^5.2.1",
     "imapflow": "^1.0.166",
     "mailparser": "^3.7.1",
+    "pg": "^8.18.0",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.97.0"
   }
 }
