@@ -222,8 +222,10 @@
     let username = null;
 
     // ログインタブ切り替え
+    console.log('Setting up login tab listeners...');
     document.querySelectorAll('.login-tab').forEach(tab => {
       tab.addEventListener('click', () => {
+        console.log('Tab clicked:', tab.dataset.type);
         const type = tab.dataset.type;
         document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
@@ -241,10 +243,15 @@
     });
 
     // 管理者ログイン
-    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const password = document.getElementById('admin-password').value;
-      const alertDiv = document.getElementById('login-alert');
+    console.log('Setting up admin login listener...');
+    const adminForm = document.getElementById('admin-login-form');
+    console.log('Admin form element:', adminForm);
+    if (adminForm) {
+      adminForm.addEventListener('submit', async (e) => {
+        console.log('Admin login form submitted!');
+        e.preventDefault();
+        const password = document.getElementById('admin-password').value;
+        const alertDiv = document.getElementById('login-alert');
 
       try {
         const res = await fetch(`${API_BASE}/api/auth/admin/login`, {
@@ -267,37 +274,48 @@
       } catch (err) {
         alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
       }
-    });
+      });
+    } else {
+      console.error('Admin login form not found!');
+    }
 
     // ユーザーログイン
-    document.getElementById('user-login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const usernameInput = document.getElementById('user-username').value;
-      const password = document.getElementById('user-password').value;
-      const alertDiv = document.getElementById('login-alert');
+    console.log('Setting up user login listener...');
+    const userForm = document.getElementById('user-login-form');
+    console.log('User form element:', userForm);
+    if (userForm) {
+      userForm.addEventListener('submit', async (e) => {
+        console.log('User login form submitted!');
+        e.preventDefault();
+        const usernameInput = document.getElementById('user-username').value;
+        const password = document.getElementById('user-password').value;
+        const alertDiv = document.getElementById('login-alert');
 
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/user/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: usernameInput, password })
-        });
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/user/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: usernameInput, password })
+          });
 
-        const result = await res.json();
+          const result = await res.json();
 
-        if (result.success) {
-          isLoggedIn = true;
-          userType = 'user';
-          userId = result.userId;
-          username = result.username;
-          afterLogin();
-        } else {
-          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
+          if (result.success) {
+            isLoggedIn = true;
+            userType = 'user';
+            userId = result.userId;
+            username = result.username;
+            afterLogin();
+          } else {
+            alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
+          }
+        } catch (err) {
+          alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
         }
-      } catch (err) {
-        alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
-      }
-    });
+      });
+    } else {
+      console.error('User login form not found!');
+    }
 
     // ログイン後の処理
     function afterLogin() {
