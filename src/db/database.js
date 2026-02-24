@@ -31,13 +31,71 @@ export function changeAdminPassword(newPassword) {
   getDb().prepare('UPDATE admin SET password_hash = ? WHERE id = 1').run(`${salt}:${hash}`);
 }
 
+// ==================== Users ====================
+
+export function getAllUsers() {
+  return getDb().prepare('SELECT id, username, email, display_name, enabled, created_at, updated_at FROM users ORDER BY id ASC').all();
+}
+
+export function getUserById(id) {
+  return getDb().prepare('SELECT id, username, email, display_name, enabled, created_at, updated_at FROM users WHERE id = ?').get(id);
+}
+
+export function getUserByUsername(username) {
+  return getDb().prepare('SELECT * FROM users WHERE username = ?').get(username);
+}
+
+export function createUser({ username, password, email = null, display_name = null, enabled = 1 }) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const result = getDb().prepare(
+    `INSERT INTO users (username, email, password_hash, display_name, enabled)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(username, email, `${salt}:${hash}`, display_name, enabled);
+  return getUserById(Number(result.lastInsertRowid));
+}
+
+export function updateUser(id, fields) {
+  const allowed = ['username', 'email', 'display_name', 'enabled'];
+  const updates = [];
+  const values = [];
+  for (const key of allowed) {
+    if (key in fields) { updates.push(`${key} = ?`); values.push(fields[key]); }
+  }
+  if (updates.length === 0) return getUserById(id);
+  updates.push("updated_at = datetime('now')");
+  values.push(id);
+  getDb().prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  return getUserById(id);
+}
+
+export function deleteUser(id) {
+  // CASCADE will delete related sessions, accounts, rules
+  getDb().prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
+export function verifyUserPassword(username, password) {
+  const user = getUserByUsername(username);
+  if (!user || !user.enabled) return null;
+  const [salt, stored] = user.password_hash.split(':');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  if (hash !== stored) return null;
+  return { id: user.id, username: user.username, display_name: user.display_name };
+}
+
+export function changeUserPassword(userId, newPassword) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(newPassword, salt, 64).toString('hex');
+  getDb().prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?").run(`${salt}:${hash}`, userId);
+}
+
 // ==================== Sessions ====================
 
-export function createSession() {
+export function createSession(userType = 'admin', userId = null) {
   const id = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  getDb().prepare('INSERT INTO sessions (id, expires_at) VALUES (?, ?)').run(id, expires);
-  return { id, expires_at: expires };
+  getDb().prepare('INSERT INTO sessions (id, user_type, user_id, expires_at) VALUES (?, ?, ?, ?)').run(id, userType, userId, expires);
+  return { id, user_type: userType, user_id: userId, expires_at: expires };
 }
 
 export function getSession(sessionId) {
@@ -78,6 +136,10 @@ export function getAllAccounts() {
   return getDb().prepare('SELECT * FROM accounts ORDER BY id ASC').all();
 }
 
+export function getAccountsByUserId(userId) {
+  return getDb().prepare('SELECT * FROM accounts WHERE user_id = ? ORDER BY id ASC').all(userId);
+}
+
 export function getEnabledAccounts() {
   return getDb().prepare('SELECT * FROM accounts WHERE enabled = 1 ORDER BY id ASC').all();
 }
@@ -86,11 +148,11 @@ export function getAccountById(id) {
   return getDb().prepare('SELECT * FROM accounts WHERE id = ?').get(id);
 }
 
-export function createAccount({ name, enabled = 1, host, port = 993, username, password = null, password_mode = 'manual', password_prefix = null, password_suffix = null, poll_speed = 'normal' }) {
+export function createAccount({ user_id = null, name, enabled = 1, host, port = 993, username, password = null, password_mode = 'manual', password_prefix = null, password_suffix = null, poll_speed = 'normal' }) {
   const result = getDb().prepare(
-    `INSERT INTO accounts (name, enabled, host, port, username, password, password_mode, password_prefix, password_suffix, poll_speed)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(name, enabled, host, port, username, password, password_mode, password_prefix, password_suffix, poll_speed);
+    `INSERT INTO accounts (user_id, name, enabled, host, port, username, password, password_mode, password_prefix, password_suffix, poll_speed)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(user_id, name, enabled, host, port, username, password, password_mode, password_prefix, password_suffix, poll_speed);
 
   const accountId = Number(result.lastInsertRowid);
 
@@ -101,7 +163,7 @@ export function createAccount({ name, enabled = 1, host, port = 993, username, p
 }
 
 export function updateAccount(id, fields) {
-  const allowed = ['name', 'enabled', 'host', 'port', 'username', 'password', 'password_mode', 'password_prefix', 'password_suffix', 'poll_speed'];
+  const allowed = ['user_id', 'name', 'enabled', 'host', 'port', 'username', 'password', 'password_mode', 'password_prefix', 'password_suffix', 'poll_speed'];
   const updates = [];
   const values = [];
   for (const key of allowed) {
@@ -123,6 +185,10 @@ export function deleteAccount(id) {
 
 export function getAllRules() {
   return getDb().prepare('SELECT * FROM rules ORDER BY priority DESC, id ASC').all();
+}
+
+export function getRulesByUserId(userId) {
+  return getDb().prepare('SELECT * FROM rules WHERE user_id = ? ORDER BY priority DESC, id ASC').all(userId);
 }
 
 export function getEnabledRules(source = null, accountId = null) {
@@ -147,12 +213,12 @@ export function getRuleById(id) {
   return getDb().prepare('SELECT * FROM rules WHERE id = ?').get(id);
 }
 
-export function createRule({ name, enabled = 1, source = 'all', account_id = null, match_type = 'all', conditions = '[]', chatwork_room_id, message_template = '', priority = 0 }) {
+export function createRule({ user_id = null, name, enabled = 1, source = 'all', account_id = null, match_type = 'all', conditions = '[]', chatwork_room_id, message_template = '', priority = 0 }) {
   const cond = typeof conditions === 'string' ? conditions : JSON.stringify(conditions);
   const result = getDb().prepare(
-    `INSERT INTO rules (name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(name, enabled, source, account_id, match_type, cond, chatwork_room_id, message_template, priority);
+    `INSERT INTO rules (user_id, name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(user_id, name, enabled, source, account_id, match_type, cond, chatwork_room_id, message_template, priority);
   return getRuleById(Number(result.lastInsertRowid));
 }
 
@@ -160,7 +226,7 @@ export function updateRule(id, fields) {
   if (fields.conditions && typeof fields.conditions !== 'string') {
     fields.conditions = JSON.stringify(fields.conditions);
   }
-  const allowed = ['name', 'enabled', 'source', 'account_id', 'match_type', 'conditions', 'chatwork_room_id', 'message_template', 'priority'];
+  const allowed = ['user_id', 'name', 'enabled', 'source', 'account_id', 'match_type', 'conditions', 'chatwork_room_id', 'message_template', 'priority'];
   const updates = [];
   const values = [];
   for (const key of allowed) {
@@ -191,7 +257,7 @@ export function recordProcessedEmail({ account_id, imap_uid, rule_id, sender, su
   ).run(account_id, imap_uid, rule_id, sender, subject, status, error_message, chatwork_room_id);
 }
 
-export function getProcessedEmails({ limit = 50, offset = 0, status = null, accountId = null } = {}) {
+export function getProcessedEmails({ limit = 50, offset = 0, status = null, accountId = null, userId = null } = {}) {
   let query = 'SELECT * FROM processed_emails';
   const params = [];
   const conditions = [];
@@ -206,6 +272,11 @@ export function getProcessedEmails({ limit = 50, offset = 0, status = null, acco
     params.push(accountId);
   }
 
+  if (userId !== null) {
+    conditions.push('account_id IN (SELECT id FROM accounts WHERE user_id = ?)');
+    params.push(userId);
+  }
+
   if (conditions.length > 0) {
     query += ' WHERE ' + conditions.join(' AND ');
   }
@@ -216,7 +287,11 @@ export function getProcessedEmails({ limit = 50, offset = 0, status = null, acco
   return getDb().prepare(query).all(...params);
 }
 
-export function getProcessedEmailStats(accountId = null) {
+export function getProcessedEmailsByUserId(userId, options = {}) {
+  return getProcessedEmails({ ...options, userId });
+}
+
+export function getProcessedEmailStats(accountId = null, userId = null) {
   let query = `SELECT status, COUNT(*) as count FROM processed_emails
      WHERE processed_at >= datetime('now', '-24 hours')`;
   const params = [];
@@ -224,6 +299,11 @@ export function getProcessedEmailStats(accountId = null) {
   if (accountId !== null) {
     query += ' AND account_id = ?';
     params.push(accountId);
+  }
+
+  if (userId !== null) {
+    query += ' AND account_id IN (SELECT id FROM accounts WHERE user_id = ?)';
+    params.push(userId);
   }
 
   query += ' GROUP BY status';

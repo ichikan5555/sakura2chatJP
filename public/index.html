@@ -56,13 +56,17 @@
 
     /* ログインページ */
     #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .login-card { background: white; border-radius: 12px; padding: 3rem; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 400px; width: 90%; }
+    .login-card { background: white; border-radius: 12px; padding: 3rem; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 450px; width: 90%; }
     .login-card h1 { color: #333; margin-bottom: 0.5rem; font-size: 1.75rem; }
-    .login-card p { color: #666; margin-bottom: 2rem; }
+    .login-card p { color: #666; margin-bottom: 1.5rem; }
     .login-card .form-group { margin-bottom: 1.5rem; }
     .login-card label { color: #333; font-weight: 500; }
     .login-card input { padding: 0.875rem; font-size: 1rem; }
     .login-card button { width: 100%; padding: 1rem; font-size: 1rem; }
+    .login-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .login-tab { flex: 1; padding: 0.75rem; border: 2px solid #ddd; background: white; border-radius: 6px; cursor: pointer; text-align: center; font-weight: 500; transition: all 0.2s; }
+    .login-tab:hover { background: #f8f9fa; }
+    .login-tab.active { background: #0066cc; color: white; border-color: #0066cc; }
   </style>
 </head>
 <body>
@@ -70,13 +74,33 @@
   <div id="login-page" class="hidden">
     <div class="login-card">
       <h1>📧 さくらメール → Chatwork</h1>
-      <p>管理画面にログイン</p>
+      <p>転送システム ログイン</p>
+
+      <!-- ログインタブ -->
+      <div class="login-tabs">
+        <button type="button" class="login-tab active" data-type="admin">👤 管理者</button>
+        <button type="button" class="login-tab" data-type="user">👥 ユーザー</button>
+      </div>
+
       <div id="login-alert"></div>
-      <form id="login-form">
+
+      <!-- 管理者ログインフォーム -->
+      <form id="admin-login-form">
         <div class="form-group">
-          <label>パスワード <input type="password" id="login-password" required autofocus></label>
+          <label>管理者パスワード <input type="password" id="admin-password" required autofocus></label>
         </div>
-        <button type="submit">ログイン</button>
+        <button type="submit">管理者ログイン</button>
+      </form>
+
+      <!-- ユーザーログインフォーム -->
+      <form id="user-login-form" class="hidden">
+        <div class="form-group">
+          <label>ユーザーID <input type="text" id="user-username" required></label>
+        </div>
+        <div class="form-group">
+          <label>パスワード <input type="password" id="user-password" required></label>
+        </div>
+        <button type="submit">ユーザーログイン</button>
       </form>
     </div>
   </div>
@@ -142,7 +166,6 @@
             <select id="account-poll-speed">
               <option value="high">⚡ 高速（30秒）</option>
               <option value="normal" selected>🔄 通常（60秒）</option>
-              <option value="slow">🐢 ゆっくり（90秒）</option>
             </select>
           </label>
         </div>
@@ -157,19 +180,74 @@
     </div>
   </div>
 
+  <!-- ユーザー追加・編集モーダル -->
+  <div id="user-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="user-modal-title">ユーザー追加</h3>
+        <button class="modal-close" onclick="closeUserModal()">×</button>
+      </div>
+      <form id="user-form">
+        <input type="hidden" id="user-id">
+        <div id="user-alert"></div>
+        <div class="form-group">
+          <label>ユーザーID（ログイン用）<input type="text" id="user-username" required></label>
+        </div>
+        <div class="form-group" id="user-password-field">
+          <label>パスワード <input type="password" id="user-password" required></label>
+        </div>
+        <div class="form-group">
+          <label>メールアドレス <input type="email" id="user-email"></label>
+        </div>
+        <div class="form-group">
+          <label>表示名 <input type="text" id="user-display-name"></label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="user-enabled" checked> 有効</label>
+        </div>
+        <div class="btn-group">
+          <button type="submit">保存</button>
+          <button type="button" class="secondary" onclick="closeUserModal()">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const API_BASE = '';
     let currentRoute = '/';
     let isLoggedIn = false;
+    let userType = null; // 'admin' or 'user'
+    let userId = null;
+    let username = null;
 
-    // ログイン処理
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    // ログインタブ切り替え
+    document.querySelectorAll('.login-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const type = tab.dataset.type;
+        document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        if (type === 'admin') {
+          document.getElementById('admin-login-form').classList.remove('hidden');
+          document.getElementById('user-login-form').classList.add('hidden');
+          document.getElementById('admin-password').focus();
+        } else {
+          document.getElementById('admin-login-form').classList.add('hidden');
+          document.getElementById('user-login-form').classList.remove('hidden');
+          document.getElementById('user-username').focus();
+        }
+      });
+    });
+
+    // 管理者ログイン
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const password = document.getElementById('login-password').value;
+      const password = document.getElementById('admin-password').value;
       const alertDiv = document.getElementById('login-alert');
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, {
+        const res = await fetch(`${API_BASE}/api/auth/admin/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password })
@@ -179,27 +257,95 @@
 
         if (result.success) {
           isLoggedIn = true;
-          document.getElementById('login-page').classList.add('hidden');
-          document.getElementById('main-app').classList.remove('hidden');
-          navigate(window.location.hash.slice(1) || '/');
+          userType = 'admin';
+          userId = null;
+          username = null;
+          afterLogin();
         } else {
-          alertDiv.innerHTML = '<div class="alert alert-error">パスワードが間違っています</div>';
+          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
         }
       } catch (err) {
         alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
       }
     });
 
-    // ログアウト
-    document.getElementById('logout-btn').addEventListener('click', async (e) => {
+    // ユーザーログイン
+    document.getElementById('user-login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
-      isLoggedIn = false;
-      document.getElementById('main-app').classList.add('hidden');
-      document.getElementById('login-page').classList.remove('hidden');
-      document.getElementById('login-password').value = '';
-      document.getElementById('login-alert').innerHTML = '';
+      const usernameInput = document.getElementById('user-username').value;
+      const password = document.getElementById('user-password').value;
+      const alertDiv = document.getElementById('login-alert');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/user/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: usernameInput, password })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          isLoggedIn = true;
+          userType = 'user';
+          userId = result.userId;
+          username = result.username;
+          afterLogin();
+        } else {
+          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
+        }
+      } catch (err) {
+        alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
+      }
     });
+
+    // ログイン後の処理
+    function afterLogin() {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      updateNavigation();
+      navigate(window.location.hash.slice(1) || '/');
+    }
+
+    // ナビゲーションの更新（管理者/ユーザーで切り替え）
+    function updateNavigation() {
+      const nav = document.getElementById('main-nav');
+      if (userType === 'admin') {
+        nav.innerHTML = `
+          <a href="#/" data-route="/" class="active">ダッシュボード</a>
+          <a href="#/users" data-route="/users">👤 ユーザー管理</a>
+          <a href="#/accounts" data-route="/accounts">アカウント管理</a>
+          <a href="#/rules" data-route="/rules">ルール管理</a>
+          <a href="#/logs" data-route="/logs">転送ログ</a>
+          <a href="#/settings" data-route="/settings">設定</a>
+          <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
+        `;
+      } else {
+        nav.innerHTML = `
+          <a href="#/" data-route="/" class="active">ダッシュボード</a>
+          <a href="#/my-accounts" data-route="/my-accounts">📧 メールアカウント</a>
+          <a href="#/my-rules" data-route="/my-rules">📝 転送ルール</a>
+          <a href="#/my-logs" data-route="/my-logs">📊 転送履歴</a>
+          <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト (${username})</a>
+        `;
+      }
+
+      // ログアウトボタンの再設定
+      document.getElementById('logout-btn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
+        isLoggedIn = false;
+        userType = null;
+        userId = null;
+        username = null;
+        document.getElementById('main-app').classList.add('hidden');
+        document.getElementById('login-page').classList.remove('hidden');
+        document.getElementById('admin-password').value = '';
+        document.getElementById('user-username').value = '';
+        document.getElementById('user-password').value = '';
+        document.getElementById('login-alert').innerHTML = '';
+      });
+    }
 
     // Router
     function navigate(route) {
@@ -215,9 +361,13 @@
       const app = document.getElementById('app');
       switch(currentRoute) {
         case '/': renderDashboard(app); break;
+        case '/users': renderUsers(app); break; // 管理者専用
         case '/accounts': renderAccounts(app); break;
+        case '/my-accounts': renderAccounts(app); break; // ユーザー用（既存関数を再利用）
         case '/rules': renderRules(app); break;
+        case '/my-rules': renderRules(app); break; // ユーザー用（既存関数を再利用）
         case '/logs': renderLogs(app); break;
+        case '/my-logs': renderLogs(app); break; // ユーザー用（既存関数を再利用）
         case '/settings': renderSettings(app); break;
         default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
       }
@@ -301,6 +451,58 @@
               <tr><th>ID</th><th>名前</th><th>ユーザー名</th><th>監視速度</th><th>状態</th><th>操作</th></tr>
             </thead>
             <tbody>${rows || '<tr><td colspan="6">アカウントがありません</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Users Management (Admin only)
+    async function renderUsers(app) {
+      if (userType !== 'admin') {
+        app.innerHTML = '<div class="card"><h2>アクセス拒否</h2><p>管理者権限が必要です</p></div>';
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/admin/users`);
+      const users = await res.json();
+
+      const rows = users.map(user => `
+        <tr>
+          <td>${user.id}</td>
+          <td>${user.username}</td>
+          <td>${user.email || '-'}</td>
+          <td>${user.display_name || '-'}</td>
+          <td><span class="badge ${user.enabled ? 'badge-success' : 'badge-error'}">${user.enabled ? '有効' : '無効'}</span></td>
+          <td>${new Date(user.created_at).toLocaleString('ja-JP')}</td>
+          <td>
+            <div class="btn-group">
+              <button class="secondary" onclick="editUser(${user.id})">編集</button>
+              <button class="secondary" onclick="resetUserPassword(${user.id}, '${user.username}')">パスワードリセット</button>
+              <button class="danger" onclick="deleteUser(${user.id}, '${user.username}')">削除</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      app.innerHTML = `
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>👤 ユーザー管理</h2>
+            <button onclick="openUserModal()">➕ 新規ユーザー追加</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>ユーザーID</th>
+                <th>メールアドレス</th>
+                <th>表示名</th>
+                <th>状態</th>
+                <th>作成日時</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="7">ユーザーがいません</td></tr>'}</tbody>
           </table>
         </div>
       `;
@@ -457,6 +659,132 @@
       }
     }
 
+    // User Modal Functions
+    function openUserModal(userId = null) {
+      const modal = document.getElementById('user-modal');
+      const form = document.getElementById('user-form');
+      const title = document.getElementById('user-modal-title');
+      const passwordField = document.getElementById('user-password-field');
+
+      form.reset();
+      document.getElementById('user-id').value = '';
+      document.getElementById('user-alert').innerHTML = '';
+      title.textContent = 'ユーザー追加';
+      passwordField.classList.remove('hidden');
+      document.getElementById('user-password').required = true;
+
+      if (userId) {
+        title.textContent = 'ユーザー編集';
+        passwordField.classList.add('hidden');
+        document.getElementById('user-password').required = false;
+
+        fetch(`${API_BASE}/api/admin/users/${userId}`).then(res => res.json()).then(user => {
+          document.getElementById('user-id').value = user.id;
+          document.getElementById('user-username').value = user.username;
+          document.getElementById('user-email').value = user.email || '';
+          document.getElementById('user-display-name').value = user.display_name || '';
+          document.getElementById('user-enabled').checked = user.enabled === 1;
+        });
+      }
+
+      modal.classList.add('show');
+    }
+
+    function closeUserModal() {
+      document.getElementById('user-modal').classList.remove('show');
+    }
+
+    async function editUser(userId) {
+      openUserModal(userId);
+    }
+
+    async function resetUserPassword(userId, username) {
+      if (!confirm(`ユーザー「${username}」のパスワードをリセットしますか？`)) return;
+
+      const newPassword = prompt('新しいパスワードを入力してください:');
+      if (!newPassword) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/users/${userId}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: newPassword })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          alert('パスワードをリセットしました');
+        } else {
+          alert('エラー: ' + (result.error || 'パスワードリセットに失敗しました'));
+        }
+      } catch (err) {
+        alert('エラーが発生しました');
+      }
+    }
+
+    async function deleteUser(userId, username) {
+      if (!confirm(`ユーザー「${username}」を削除しますか？\n関連するアカウントとルールも削除されます。`)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          alert('ユーザーを削除しました');
+          navigate('/users'); // Refresh the page
+        } else {
+          alert('エラー: ' + (result.error || 'ユーザー削除に失敗しました'));
+        }
+      } catch (err) {
+        alert('エラーが発生しました');
+      }
+    }
+
+    // User Form Submit
+    document.getElementById('user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertDiv = document.getElementById('user-alert');
+      const id = document.getElementById('user-id').value;
+
+      const data = {
+        username: document.getElementById('user-username').value,
+        email: document.getElementById('user-email').value,
+        display_name: document.getElementById('user-display-name').value,
+        enabled: document.getElementById('user-enabled').checked ? 1 : 0
+      };
+
+      if (!id) {
+        // Creating new user - password is required
+        data.password = document.getElementById('user-password').value;
+      }
+
+      try {
+        const url = id ? `${API_BASE}/api/admin/users/${id}` : `${API_BASE}/api/admin/users`;
+        const method = id ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (result.success || result.id) {
+          closeUserModal();
+          navigate('/users'); // Refresh the page
+        } else {
+          alertDiv.innerHTML = `<div class="alert alert-error">${result.error || '保存に失敗しました'}</div>`;
+        }
+      } catch (err) {
+        alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+      }
+    });
+
     document.getElementById('account-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -572,11 +900,15 @@
       }
     });
 
-    // Check auth
+    // Check auth on page load
     fetch(`${API_BASE}/api/auth/me`).then(res => res.json()).then(data => {
       if (data.loggedIn) {
         isLoggedIn = true;
+        userType = data.userType;
+        userId = data.userId || null;
+        username = data.username || null;
         document.getElementById('main-app').classList.remove('hidden');
+        updateNavigation();
         navigate(window.location.hash.slice(1) || '/');
       } else {
         document.getElementById('login-page').classList.remove('hidden');

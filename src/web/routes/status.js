@@ -1,13 +1,23 @@
 import { Router } from 'express';
-import { getProcessedEmailStats, getEnabledAccounts } from '../../db/database.js';
+import { getProcessedEmailStats, getEnabledAccounts, getAccountsByUserId } from '../../db/database.js';
 import { getAllPollerStatus } from '../../imap/poller.js';
 import { requireAuth } from '../middleware/session.js';
+import { requireAuth as requireAnyAuth } from '../middleware/auth.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAnyAuth);
 
+// GET /api/status - ステータス取得（ユーザーは自分のみ、管理者は全て）
 router.get('/', (req, res) => {
-  const accounts = getEnabledAccounts();
+  let accounts;
+  if (req.auth.isAdmin) {
+    accounts = getEnabledAccounts();
+  } else if (req.auth.isUser) {
+    accounts = getAccountsByUserId(req.auth.userId).filter(a => a.enabled);
+  } else {
+    return res.status(401).json({ error: 'ログインが必要です' });
+  }
+
   const pollerStatuses = getAllPollerStatus();
 
   const accountsStatus = accounts.map(acc => {
@@ -23,9 +33,14 @@ router.get('/', (req, res) => {
     };
   });
 
+  // ユーザーは自分の統計のみ
+  const stats = req.auth.isAdmin
+    ? getProcessedEmailStats()
+    : getProcessedEmailStats(null, req.auth.userId);
+
   res.json({
     accounts: accountsStatus,
-    stats24h: getProcessedEmailStats(),
+    stats24h: stats,
   });
 });
 

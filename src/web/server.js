@@ -11,6 +11,8 @@ import chatworkRouter from './routes/chatwork.js';
 import settingsRouter from './routes/settings.js';
 import ruleImportExportRouter from './routes/ruleImportExport.js';
 import accountsRouter from './routes/accounts.js';
+import adminUsersRouter from './routes/admin/users.js';
+import adminMonitorRouter from './routes/admin/monitor.js';
 
 export function createApp() {
   const app = express();
@@ -28,6 +30,10 @@ export function createApp() {
   app.use('/api/chatwork', chatworkRouter);
   app.use('/api/settings', settingsRouter);
   app.use('/api/accounts', accountsRouter);
+
+  // Admin routes
+  app.use('/api/admin/users', adminUsersRouter);
+  app.use('/api/admin/monitor', adminMonitorRouter);
 
   app.use(errorHandler);
   return app;

@@ -4,11 +4,26 @@ CREATE TABLE IF NOT EXISTS admin (
   password_hash TEXT NOT NULL
 );
 
+-- Users table (for multi-user support)
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  email TEXT,
+  password_hash TEXT NOT NULL,
+  display_name TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
+  user_type TEXT NOT NULL DEFAULT 'admin' CHECK(user_type IN ('admin', 'user')),
+  user_id INTEGER,
   expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Settings (key-value)
@@ -19,10 +34,11 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- IMAP Accounts (複数アカウント対応)
--- poll_speed: "high" (30s) | "normal" (60s) | "slow" (90s)
+-- poll_speed: "high" (30s) | "normal" (60s) - only 2 options for multi-user
 -- password_mode: "derive" | "manual"
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   name TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1,
   host TEXT NOT NULL,
@@ -32,9 +48,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   password_mode TEXT NOT NULL DEFAULT 'manual' CHECK(password_mode IN ('derive', 'manual')),
   password_prefix TEXT,
   password_suffix TEXT,
-  poll_speed TEXT NOT NULL DEFAULT 'normal' CHECK(poll_speed IN ('high', 'normal', 'slow')),
+  poll_speed TEXT NOT NULL DEFAULT 'normal' CHECK(poll_speed IN ('high', 'normal')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Rules
@@ -45,6 +62,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 --   operator: "contains" | "not_contains" | "equals" | "starts_with" | "ends_with" | "matches" (regex) | "domain"
 CREATE TABLE IF NOT EXISTS rules (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   name TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1,
   source TEXT NOT NULL DEFAULT 'all' CHECK(source IN ('imap', 'all')),
@@ -56,6 +74,7 @@ CREATE TABLE IF NOT EXISTS rules (
   priority INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
@@ -83,3 +102,9 @@ CREATE TABLE IF NOT EXISTS poller_state (
   last_poll_at TEXT,
   FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_rules_user_id ON rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_type ON sessions(user_type);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
