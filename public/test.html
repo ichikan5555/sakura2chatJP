@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログインテスト</title>
+  <style>
+    body { font-family: sans-serif; padding: 50px; }
+    .form-group { margin: 20px 0; }
+    button { padding: 10px 20px; background: #0066cc; color: white; border: none; cursor: pointer; }
+    .alert { padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .alert-error { background: #f8d7da; color: #721c24; }
+    .alert-success { background: #d4edda; color: #155724; }
+  </style>
+</head>
+<body>
+  <h1>ログインテスト</h1>
+
+  <div id="alert"></div>
+
+  <form id="test-form">
+    <div class="form-group">
+      <label>パスワード: <input type="password" id="password" value="admin123"></label>
+    </div>
+    <button type="submit">ログイン</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    console.log('Test page loaded');
+
+    const form = document.getElementById('test-form');
+    console.log('Form element:', form);
+
+    form.addEventListener('submit', async (e) => {
+      console.log('Form submitted!');
+      e.preventDefault();
+
+      const password = document.getElementById('password').value;
+      const alertDiv = document.getElementById('alert');
+      const resultDiv = document.getElementById('result');
+
+      console.log('Password:', password);
+
+      try {
+        console.log('Sending request to /api/auth/admin/login...');
+        const res = await fetch('/api/auth/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        console.log('Response status:', res.status);
+        const result = await res.json();
+        console.log('Result:', result);
+
+        if (result.success) {
+          alertDiv.innerHTML = '<div class="alert alert-success">✅ ログイン成功！</div>';
+          resultDiv.innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+        } else {
+          alertDiv.innerHTML = '<div class="alert alert-error">❌ ログイン失敗: ' + (result.error || 'Unknown error') + '</div>';
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        alertDiv.innerHTML = '<div class="alert alert-error">❌ エラー: ' + err.message + '</div>';
+      }
+    });
+
+    console.log('Event listener attached');
+  </script>
+</body>
+</html>

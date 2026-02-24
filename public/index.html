@@ -319,8 +319,9 @@
 
     // ログイン後の処理
     function afterLogin() {
-      document.getElementById('login-page').classList.add('hidden');
-      document.getElementById('main-app').classList.remove('hidden');
+      console.log('afterLogin called');
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('main-app').style.display = 'block';
       updateNavigation();
       navigate(window.location.hash.slice(1) || '/');
     }
@@ -356,8 +357,8 @@
         userType = null;
         userId = null;
         username = null;
-        document.getElementById('main-app').classList.add('hidden');
-        document.getElementById('login-page').classList.remove('hidden');
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('login-page').style.display = 'flex';
         document.getElementById('admin-password').value = '';
         document.getElementById('user-username').value = '';
         document.getElementById('user-password').value = '';
@@ -919,19 +920,36 @@
     });
 
     // Check auth on page load
-    fetch(`${API_BASE}/api/auth/me`).then(res => res.json()).then(data => {
-      if (data.loggedIn) {
-        isLoggedIn = true;
-        userType = data.userType;
-        userId = data.userId || null;
-        username = data.username || null;
-        document.getElementById('main-app').classList.remove('hidden');
-        updateNavigation();
-        navigate(window.location.hash.slice(1) || '/');
-      } else {
-        document.getElementById('login-page').classList.remove('hidden');
-      }
-    });
+    console.log('Checking authentication...');
+    fetch(`${API_BASE}/api/auth/me`)
+      .then(res => {
+        console.log('Auth response status:', res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log('Auth data:', data);
+        if (data.loggedIn) {
+          isLoggedIn = true;
+          userType = data.userType;
+          userId = data.userId || null;
+          username = data.username || null;
+          console.log('User is logged in as:', userType);
+          document.getElementById('login-page').style.display = 'none';
+          document.getElementById('main-app').style.display = 'block';
+          updateNavigation();
+          navigate(window.location.hash.slice(1) || '/');
+        } else {
+          console.log('User is not logged in, showing login page');
+          document.getElementById('login-page').style.display = 'flex';
+          document.getElementById('main-app').style.display = 'none';
+        }
+      })
+      .catch(err => {
+        console.error('Auth check failed:', err);
+        console.log('Showing login page due to error');
+        document.getElementById('login-page').style.display = 'flex';
+        document.getElementById('main-app').style.display = 'none';
+      });
   </script>
 </body>
 </html>
