@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllRules, createRule } from '../../db/database.js';
+import { getAllRules, getAllAccounts, createRule } from '../../db/database.js';
 import { requireAuth } from '../middleware/session.js';
 import { logger } from '../../logger.js';
 import * as XLSX from 'xlsx';
@@ -78,6 +78,9 @@ router.post('/import', async (req, res) => {
     // Skip header
     const dataRows = rows.slice(1);
 
+    // Get all accounts for mapping
+    const accounts = await getAllAccounts();
+
     const results = {
       success: 0,
       failed: 0,
@@ -92,21 +95,18 @@ router.post('/import', async (req, res) => {
         // Log row structure for debugging
         logger.info(`Row ${i + 2}: ${row.length} columns - [${row.map(c => `"${c?.substring(0, 30)}..."`).join(', ')}]`);
 
-        // Support both 4-column and 5-column formats
-        // 4-column: ルール名,送信者,件名,ルームID
-        // 5-column: ルール名,送信者,件名,メッセージテンプレート,ルームID
-        if (row.length < 4) {
+        // New 5-column format: ルール名,受信メールアドレス,相手メールアドレス,受信件名（部分一致）,チャットワークルームID
+        if (row.length < 5) {
           results.failed++;
-          results.errors.push(`${i + 2}行目: 列が不足しています (${row.length}列)`);
+          results.errors.push(`${i + 2}行目: 列が不足しています (${row.length}列、5列必要)`);
           continue;
         }
 
-        const hasTemplate = row.length >= 5;
         const name = row[0];
-        const senderField = row[1];
-        const subjectField = row[2];
-        const messageTemplate = hasTemplate ? row[3] : '';
-        const roomId = hasTemplate ? row[4] : row[3];
+        const accountEmail = row[1];
+        const senderField = row[2];
+        const subjectField = row[3];
+        const roomId = row[4];
 
         if (!name || !name.trim()) {
           results.failed++;
@@ -116,11 +116,20 @@ router.post('/import', async (req, res) => {
 
         if (!roomId || !roomId.trim()) {
           results.failed++;
-          results.errors.push(`${i + 2}行目: 転送先ルームIDが必要です`);
+          results.errors.push(`${i + 2}行目: チャットワークルームIDが必要です`);
           continue;
         }
 
-        // Parse search syntax and build conditions
+        // Find account by email
+        let accountId = null;
+        if (accountEmail && accountEmail.trim() && accountEmail.trim() !== '全アカウント') {
+          const account = accounts.find(a => a.username === accountEmail.trim());
+          if (account) {
+            accountId = account.id;
+          }
+        }
+
+        // Build conditions (AND search)
         const conditions = [];
 
         // Parse sender field
@@ -140,10 +149,11 @@ router.post('/import', async (req, res) => {
           name: name.trim(),
           enabled: 1,
           source: 'imap',
-          match_type: 'any', // Use 'any' for multiple conditions
+          account_id: accountId,
+          match_type: 'all', // AND search
           conditions,
           chatwork_room_id: roomId.trim(),
-          message_template: messageTemplate.trim(),
+          message_template: '件名：　{subject}\n\n内容：　{body}\n\n日時：　{date}\n\nアカウント：　{username}\n\nルール名：　{rule_name}',
           priority: 0,
         });
 
@@ -369,7 +379,16 @@ router.post('/import-excel', async (req, res) => {
           continue;
         }
 
-        // Build conditions
+        // Find account by email
+        let accountId = null;
+        if (accountEmail && accountEmail.trim() && accountEmail.trim() !== '全アカウント') {
+          const account = accounts.find(a => a.username === accountEmail.trim());
+          if (account) {
+            accountId = account.id;
+          }
+        }
+
+        // Build conditions (AND search)
         const conditions = [];
         if (sender && sender.trim()) {
           const senderConditions = parseSearchSyntax(sender, 'sender');
@@ -385,10 +404,11 @@ router.post('/import-excel', async (req, res) => {
           name: name.trim(),
           enabled: 1,
           source: 'imap',
-          match_type: 'any',
+          account_id: accountId,
+          match_type: 'all', // AND search
           conditions,
           chatwork_room_id: String(roomId).trim(),
-          message_template: '',
+          message_template: '件名：　{subject}\n\n内容：　{body}\n\n日時：　{date}\n\nアカウント：　{username}\n\nルール名：　{rule_name}',
           priority: 0,
         });
 
