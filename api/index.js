@@ -1,24 +1,34 @@
-// Vercel serverless function entry point
-import { initializeDatabase } from '../src/db/postgres.js';
-import { createApp } from '../src/web/server.js';
+// Minimal Vercel serverless function
+import express from 'express';
 
-// Initialize database (only once)
-let dbInitialized = false;
-async function ensureDbInitialized() {
-  if (!dbInitialized && process.env.DATABASE_URL) {
-    await initializeDatabase();
-    dbInitialized = true;
+const app = express();
+
+app.use(express.json());
+app.use(express.static('public'));
+
+// Simple auth
+const sessions = new Map();
+
+app.post('/api/auth/admin/login', (req, res) => {
+  const { password } = req.body;
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (password === adminPassword) {
+    const sessionId = Math.random().toString(36).substring(7);
+    sessions.set(sessionId, { type: 'admin' });
+    res.setHeader('Set-Cookie', `s2c_session=${sessionId}; Path=/; HttpOnly; Max-Age=604800`);
+    res.json({ success: true, userType: 'admin' });
+  } else {
+    res.status(401).json({ error: 'パスワードが間違っています' });
   }
-}
-
-// Create app
-const app = createApp();
-
-// Middleware to ensure DB is initialized
-app.use(async (req, res, next) => {
-  await ensureDbInitialized();
-  next();
 });
 
-// Export for Vercel
+app.get('/api/auth/me', (req, res) => {
+  res.json({ loggedIn: false });
+});
+
+app.get('/api/auth/test', (req, res) => {
+  res.json({ message: 'Auth working!', env: process.env.ADMIN_PASSWORD ? 'set' : 'not set' });
+});
+
 export default app;
