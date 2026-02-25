@@ -1,12 +1,6 @@
 // Vercel serverless function with full features
 import express from 'express';
 import crypto from 'crypto';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const app = express();
 app.use(express.json());
@@ -76,9 +70,6 @@ function requireAuth(req, res, next) {
   if (!req.auth.isAdmin && !req.auth.isUser) return res.status(401).json({ error: 'ログインが必要です' });
   next();
 }
-
-// Serve static files
-app.use(express.static(path.join(__dirname, '../public')));
 
 // ===== Auth Routes =====
 
