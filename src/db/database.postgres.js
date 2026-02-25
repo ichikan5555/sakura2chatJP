@@ -123,6 +123,7 @@ export async function getAllSettings() {
 
 // ==================== Accounts (Stub) ====================
 export async function getAllAccounts() { return []; }
+export async function getEnabledAccounts() { return []; }
 export async function getAccountById(id) { return null; }
 export async function getAccountsByUserId(userId) { return []; }
 export async function createAccount(data) { return null; }
@@ -131,6 +132,7 @@ export async function deleteAccount(id) { }
 
 // ==================== Rules (Stub) ====================
 export async function getAllRules() { return []; }
+export async function getEnabledRules(source = null, accountId = null) { return []; }
 export async function getRuleById(id) { return null; }
 export async function getRulesByUserId(userId) { return []; }
 export async function getRulesByAccountId(accountId) { return []; }
@@ -142,6 +144,8 @@ export async function deleteRule(id) { }
 export async function getAllProcessedEmails(options = {}) { return []; }
 export async function getProcessedEmailsByUserId(userId, options = {}) { return []; }
 export async function createProcessedEmail(data) { return null; }
+export async function isEmailProcessed(accountId, uid) { return false; }
+export async function recordProcessedEmail(data) { return null; }
 
 // ==================== Poller (Stub) ====================
 export async function getPollerState(accountId) { return null; }

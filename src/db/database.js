@@ -98,6 +98,11 @@ export async function getAllAccounts() {
   return db.getAllAccounts();
 }
 
+export async function getEnabledAccounts() {
+  const db = await getDbModule();
+  return db.getEnabledAccounts();
+}
+
 export async function getAccountById(id) {
   const db = await getDbModule();
   return db.getAccountById(id);
@@ -127,6 +132,11 @@ export async function deleteAccount(id) {
 export async function getAllRules() {
   const db = await getDbModule();
   return db.getAllRules();
+}
+
+export async function getEnabledRules(source, accountId) {
+  const db = await getDbModule();
+  return db.getEnabledRules(source, accountId);
 }
 
 export async function getRuleById(id) {
@@ -173,6 +183,16 @@ export async function getProcessedEmailsByUserId(userId, options) {
 export async function createProcessedEmail(data) {
   const db = await getDbModule();
   return db.createProcessedEmail(data);
+}
+
+export async function isEmailProcessed(accountId, uid) {
+  const db = await getDbModule();
+  return db.isEmailProcessed(accountId, uid);
+}
+
+export async function recordProcessedEmail(data) {
+  const db = await getDbModule();
+  return db.recordProcessedEmail(data);
 }
 
 // Poller
