@@ -28,7 +28,7 @@ if (isProduction) {
 
 const app = createApp();
 const port = process.env.PORT || config.server.port;
-const host = process.env.VERCEL ? '0.0.0.0' : config.server.host;
+const host = process.env.RENDER || process.env.VERCEL ? '0.0.0.0' : (config.server.host || 'localhost');
 
 app.listen(port, host, () => {
   logger.info(`Web server listening on http://${host}:${port}`);
