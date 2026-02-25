@@ -175,6 +175,16 @@ export async function getAllProcessedEmails(options) {
   return db.getAllProcessedEmails(options);
 }
 
+export async function getProcessedEmails(options) {
+  const db = await getDbModule();
+  return db.getProcessedEmails ? db.getProcessedEmails(options) : db.getAllProcessedEmails(options);
+}
+
+export async function getProcessedEmailStats() {
+  const db = await getDbModule();
+  return db.getProcessedEmailStats();
+}
+
 export async function getProcessedEmailsByUserId(userId, options) {
   const db = await getDbModule();
   return db.getProcessedEmailsByUserId(userId, options);
@@ -215,6 +225,11 @@ export async function getSetting(key) {
 export async function setSetting(key, value) {
   const db = await getDbModule();
   return db.setSetting(key, value);
+}
+
+export async function setSettings(settings) {
+  const db = await getDbModule();
+  return db.setSettings ? db.setSettings(settings) : Promise.all(Object.entries(settings).map(([k, v]) => db.setSetting(k, v)));
 }
 
 export async function getAllSettings() {
