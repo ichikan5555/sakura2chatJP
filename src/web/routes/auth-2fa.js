@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import { sendMessage } from '../../chatwork/client.js';
 import { logger } from '../../logger.js';
 
 const router = Router();
@@ -8,6 +9,18 @@ const COOKIE_NAME = 's2c_session';
 // In-memory stores
 const sessions = new Map();
 const verificationCodes = new Map();
+
+// Parse ADMIN_EMAILS: "email1:roomId1,email2:roomId2"
+function parseAdminEmails() {
+  const raw = process.env.ADMIN_EMAILS || '';
+  const entries = raw.split(',').map(e => e.trim()).filter(Boolean);
+  const map = new Map();
+  for (const entry of entries) {
+    const [email, roomId] = entry.split(':').map(s => s.trim());
+    if (email) map.set(email, roomId || null);
+  }
+  return map;
+}
 
 // Clean up expired codes
 setInterval(() => {
@@ -20,17 +33,16 @@ setInterval(() => {
 }, 60000);
 
 // POST /api/auth/send-code - Send verification code
-router.post('/send-code', (req, res) => {
+router.post('/send-code', async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: 'メールアドレスを入力してください' });
   }
 
-  // For now, use environment variable to check allowed emails
-  const allowedEmails = (process.env.ADMIN_EMAILS || 'admin@example.com').split(',').map(e => e.trim());
+  const adminMap = parseAdminEmails();
 
-  if (!allowedEmails.includes(email)) {
+  if (!adminMap.has(email)) {
     return res.status(401).json({ error: '登録されていないメールアドレスです' });
   }
 
@@ -40,14 +52,26 @@ router.post('/send-code', (req, res) => {
 
   verificationCodes.set(email, { code, expires });
 
-  // TODO: Send email with code
-  // For now, log it and return in response (development only)
-  logger.info(`Verification code for ${email}: ${code}`);
+  // Send code via Chatwork DM
+  const roomId = adminMap.get(email);
+  console.log(`[2FA] email=${email}, roomId=${roomId}, adminMap size=${adminMap.size}, entries:`, [...adminMap.entries()]);
+  if (roomId) {
+    try {
+      const body = `[info][title]認証コード[/title]${code}\n（5分間有効）[/info]`;
+      await sendMessage(roomId, body);
+      logger.info(`Verification code sent to Chatwork room ${roomId} for ${email}`);
+      return res.json({ success: true, message: 'Chatworkに認証コードを送信しました' });
+    } catch (err) {
+      logger.error(`Failed to send Chatwork code for ${email}:`, err.message);
+      return res.status(500).json({ error: 'Chatworkへの送信に失敗しました: ' + err.message });
+    }
+  }
 
+  // Fallback: no roomId configured - dev mode only
+  logger.info(`Verification code for ${email}: ${code}`);
   res.json({
     success: true,
     message: 'コードを送信しました',
-    // DEVELOPMENT ONLY - remove in production
     devCode: process.env.NODE_ENV !== 'production' ? code : undefined
   });
 });
@@ -106,6 +130,7 @@ export function sessionMiddleware(req, res, next) {
     if (session && session.expires > Date.now()) {
       req.auth.isAdmin = true;
       req.auth.email = session.email;
+      req.isAdmin = true;
     }
   }
   next();

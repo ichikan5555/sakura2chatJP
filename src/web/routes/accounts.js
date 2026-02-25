@@ -10,12 +10,12 @@ const router = Router();
 router.use(requireAnyAuth);
 
 // GET /api/accounts - アカウント取得（ユーザーは自分のみ、管理者は全て）
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   let accounts;
   if (req.auth.isAdmin) {
-    accounts = getAllAccounts();
+    accounts = await getAllAccounts();
   } else if (req.auth.isUser) {
-    accounts = getAccountsByUserId(req.auth.userId);
+    accounts = await getAccountsByUserId(req.auth.userId);
   } else {
     return res.status(401).json({ error: 'ログインが必要です' });
   }
@@ -31,8 +31,8 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/accounts/:id - 特定アカウント取得（権限チェック）
-router.get('/:id', (req, res) => {
-  const account = getAccountById(Number(req.params.id));
+router.get('/:id', async (req, res) => {
+  const account = await getAccountById(Number(req.params.id));
   if (!account) return res.status(404).json({ error: 'Account not found' });
 
   // 権限チェック：ユーザーは自分のアカウントのみ
@@ -68,7 +68,7 @@ router.post('/', async (req, res, next) => {
       userId = req.body.user_id;
     }
 
-    const account = createAccount({
+    const account = await createAccount({
       user_id: userId,
       name,
       enabled: enabled ?? 1,
@@ -99,7 +99,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const existing = getAccountById(id);
+    const existing = await getAccountById(id);
     if (!existing) return res.status(404).json({ error: 'Account not found' });
 
     // 権限チェック：ユーザーは自分のアカウントのみ
@@ -118,7 +118,7 @@ router.put('/:id', async (req, res, next) => {
       delete updates.user_id;
     }
 
-    const account = updateAccount(id, updates);
+    const account = await updateAccount(id, updates);
     logger.info(`Account updated: ${account.name} (ID: ${account.id})`);
 
     // ポーラーを再起動
@@ -135,9 +135,9 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/accounts/:id - アカウント削除（権限チェック）
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getAccountById(id);
+  const existing = await getAccountById(id);
   if (!existing) return res.status(404).json({ error: 'Account not found' });
 
   // 権限チェック：ユーザーは自分のアカウントのみ
@@ -146,7 +146,7 @@ router.delete('/:id', (req, res) => {
   }
 
   stopPollerForAccount(id);
-  deleteAccount(id);
+  await deleteAccount(id);
   logger.info(`Account deleted: ${existing.name} (ID: ${id})`);
 
   res.json({ success: true });
@@ -156,7 +156,7 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/test', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const account = getAccountById(id);
+    const account = await getAccountById(id);
     if (!account) return res.status(404).json({ error: 'Account not found' });
 
     // 権限チェック：ユーザーは自分のアカウントのみ
@@ -172,9 +172,9 @@ router.post('/:id/test', async (req, res, next) => {
 });
 
 // POST /api/accounts/:id/restart - ポーラー再起動（権限チェック）
-router.post('/:id/restart', (req, res) => {
+router.post('/:id/restart', async (req, res) => {
   const id = Number(req.params.id);
-  const account = getAccountById(id);
+  const account = await getAccountById(id);
   if (!account) return res.status(404).json({ error: 'Account not found' });
 
   // 権限チェック：ユーザーは自分のアカウントのみ

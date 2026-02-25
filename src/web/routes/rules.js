@@ -7,12 +7,12 @@ const router = Router();
 router.use(requireAnyAuth);
 
 // GET /api/rules - ルール取得（ユーザーは自分のみ、管理者は全て）
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   let rules;
   if (req.auth.isAdmin) {
-    rules = getAllRules();
+    rules = await getAllRules();
   } else if (req.auth.isUser) {
-    rules = getRulesByUserId(req.auth.userId);
+    rules = await getRulesByUserId(req.auth.userId);
   } else {
     return res.status(401).json({ error: 'ログインが必要です' });
   }
@@ -20,8 +20,8 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/rules/:id - 特定ルール取得（権限チェック）
-router.get('/:id', (req, res) => {
-  const rule = getRuleById(Number(req.params.id));
+router.get('/:id', async (req, res) => {
+  const rule = await getRuleById(Number(req.params.id));
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
   // 権限チェック：ユーザーは自分のルールのみ
@@ -33,7 +33,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/rules - ルール作成（user_id自動設定）
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority } = req.body;
   if (!name || !chatwork_room_id) return res.status(400).json({ error: 'name and chatwork_room_id are required' });
 
@@ -45,7 +45,7 @@ router.post('/', (req, res) => {
     userId = req.body.user_id;
   }
 
-  res.status(201).json(createRule({
+  res.status(201).json(await createRule({
     user_id: userId,
     name,
     enabled,
@@ -60,8 +60,8 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/rules/:id - ルール更新（権限チェック）
-router.put('/:id', (req, res) => {
-  const rule = getRuleById(Number(req.params.id));
+router.put('/:id', async (req, res) => {
+  const rule = await getRuleById(Number(req.params.id));
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
   // 権限チェック：ユーザーは自分のルールのみ
@@ -75,12 +75,12 @@ router.put('/:id', (req, res) => {
     delete updates.user_id;
   }
 
-  res.json(updateRule(Number(req.params.id), updates));
+  res.json(await updateRule(Number(req.params.id), updates));
 });
 
 // DELETE /api/rules/:id - ルール削除（権限チェック）
-router.delete('/:id', (req, res) => {
-  const rule = getRuleById(Number(req.params.id));
+router.delete('/:id', async (req, res) => {
+  const rule = await getRuleById(Number(req.params.id));
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
   // 権限チェック：ユーザーは自分のルールのみ
@@ -88,7 +88,7 @@ router.delete('/:id', (req, res) => {
     return res.status(403).json({ error: 'アクセス権限がありません' });
   }
 
-  deleteRule(Number(req.params.id));
+  await deleteRule(Number(req.params.id));
   res.json({ success: true });
 });
 

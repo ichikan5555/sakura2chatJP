@@ -3,7 +3,7 @@
  * Lazy-loading wrapper that switches between SQLite and PostgreSQL
  */
 
-const usePostgres = !!process.env.DATABASE_URL;
+const usePostgres = process.env.NODE_ENV === 'production' && !!process.env.DATABASE_URL;
 let dbModule = null;
 
 async function getDbModule() {

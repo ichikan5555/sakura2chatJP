@@ -19,7 +19,7 @@ async function main() {
     fs.mkdirSync(config.credentials.dir, { recursive: true });
 
     const { runMigrations } = await import('./db/migrate.js');
-    const { getAllSettings } = await import('./db/database.js');
+    const { getAllSettings } = await import('./db/database.sqlite.js');
 
     runMigrations();
     loadSettings(getAllSettings);

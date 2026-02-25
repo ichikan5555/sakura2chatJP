@@ -16,9 +16,9 @@ const router = Router();
 router.use(requireAdmin);
 
 // GET /api/admin/users - Get all users
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const users = getAllUsers();
+    const users = await getAllUsers();
     res.json(users);
   } catch (error) {
     logger.error('Error fetching users:', error);
@@ -27,9 +27,9 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/admin/users/:id - Get user by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = getUserById(req.params.id);
+    const user = await getUserById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'ユーザーが見つかりません' });
     }
@@ -45,8 +45,6 @@ router.post('/', async (req, res) => {
   try {
     const { username, password, enabled } = req.body;
 
-    console.log('Creating user with data:', { username, password: password ? '***' : undefined, enabled });
-
     if (!username || !password) {
       return res.status(400).json({ error: 'ユーザーIDとパスワードは必須です' });
     }
@@ -58,8 +56,8 @@ router.post('/', async (req, res) => {
     const user = await createUser({
       username,
       password,
-      email: username, // Use username as email
-      display_name: username, // Use username as display name
+      email: username,
+      display_name: username,
       enabled: enabled !== undefined ? enabled : 1
     });
 
@@ -75,10 +73,10 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/admin/users/:id - Update user
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'ユーザーが見つかりません' });
@@ -92,7 +90,7 @@ router.put('/:id', (req, res) => {
     if (display_name !== undefined) updates.display_name = display_name;
     if (enabled !== undefined) updates.enabled = enabled;
 
-    const updatedUser = updateUser(userId, updates);
+    const updatedUser = await updateUser(userId, updates);
     logger.info(`User updated: ${updatedUser.username} (ID: ${userId})`);
     res.json(updatedUser);
   } catch (error) {
@@ -105,16 +103,16 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/admin/users/:id - Delete user
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'ユーザーが見つかりません' });
     }
 
-    deleteUser(userId);
+    await deleteUser(userId);
     logger.info(`User deleted: ${user.username} (ID: ${userId})`);
     res.json({ success: true, message: 'ユーザーを削除しました' });
   } catch (error) {
@@ -124,7 +122,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // PUT /api/admin/users/:id/password - Reset user password
-router.put('/:id/password', (req, res) => {
+router.put('/:id/password', async (req, res) => {
   try {
     const userId = req.params.id;
     const { newPassword } = req.body;
@@ -137,12 +135,12 @@ router.put('/:id/password', (req, res) => {
       return res.status(400).json({ error: 'パスワードは4文字以上である必要があります' });
     }
 
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user) {
       return res.status(404).json({ error: 'ユーザーが見つかりません' });
     }
 
-    changeUserPassword(userId, newPassword);
+    await changeUserPassword(userId, newPassword);
     logger.info(`User password reset: ${user.username} (ID: ${userId})`);
     res.json({ success: true, message: 'パスワードをリセットしました' });
   } catch (error) {

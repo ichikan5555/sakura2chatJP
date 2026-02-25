@@ -64,8 +64,8 @@ export function restartPollerForAccount(account) {
   startPollerForAccount(account);
 }
 
-export function startAllPollers() {
-  const accounts = getEnabledAccounts();
+export async function startAllPollers() {
+  const accounts = await getEnabledAccounts();
   for (const account of accounts) {
     startPollerForAccount(account);
   }

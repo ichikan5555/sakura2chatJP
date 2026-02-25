@@ -7,7 +7,7 @@ const router = Router();
 router.use(requireAnyAuth);
 
 // GET /api/logs - ログ取得（ユーザーは自分のみ、管理者は全て）
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
   const offset = parseInt(req.query.offset || '0', 10);
   const status = req.query.status || null;
@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
     options.userId = req.auth.userId;
   }
 
-  res.json(getProcessedEmails(options));
+  res.json(await getProcessedEmails(options));
 });
 
 export default router;

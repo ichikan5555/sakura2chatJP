@@ -8,12 +8,12 @@ const router = Router();
 router.use(requireAnyAuth);
 
 // GET /api/status - ステータス取得（ユーザーは自分のみ、管理者は全て）
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   let accounts;
   if (req.auth.isAdmin) {
-    accounts = getEnabledAccounts();
+    accounts = await getEnabledAccounts();
   } else if (req.auth.isUser) {
-    accounts = getAccountsByUserId(req.auth.userId).filter(a => a.enabled);
+    accounts = (await getAccountsByUserId(req.auth.userId)).filter(a => a.enabled);
   } else {
     return res.status(401).json({ error: 'ログインが必要です' });
   }
@@ -35,8 +35,8 @@ router.get('/', (req, res) => {
 
   // ユーザーは自分の統計のみ
   const stats = req.auth.isAdmin
-    ? getProcessedEmailStats()
-    : getProcessedEmailStats(null, req.auth.userId);
+    ? await getProcessedEmailStats()
+    : await getProcessedEmailStats(null, req.auth.userId);
 
   res.json({
     accounts: accountsStatus,

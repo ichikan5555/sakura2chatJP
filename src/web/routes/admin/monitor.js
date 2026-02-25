@@ -14,10 +14,10 @@ const router = Router();
 router.use(requireAdmin);
 
 // GET /api/admin/monitor/accounts - Get all accounts with user info
-router.get('/accounts', (req, res) => {
+router.get('/accounts', async (req, res) => {
   try {
-    const accounts = getAllAccounts();
-    const users = getAllUsers();
+    const accounts = await getAllAccounts();
+    const users = await getAllUsers();
 
     // Create user lookup map
     const userMap = {};
@@ -39,17 +39,17 @@ router.get('/accounts', (req, res) => {
 });
 
 // GET /api/admin/monitor/stats - Get system-wide statistics
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    const users = getAllUsers();
-    const accounts = getAllAccounts();
-    const stats = getProcessedEmailStats(); // All users
+    const users = await getAllUsers();
+    const accounts = await getAllAccounts();
+    const stats = await getProcessedEmailStats();
 
     // Count by user
     const userStats = {};
     for (const user of users) {
       const userAccounts = accounts.filter(a => a.user_id === user.id);
-      const userEmailStats = getProcessedEmailStats(null, user.id);
+      const userEmailStats = await getProcessedEmailStats(null, user.id);
       userStats[user.id] = {
         username: user.username,
         display_name: user.display_name,
@@ -61,7 +61,7 @@ router.get('/stats', (req, res) => {
 
     // Admin accounts (user_id = null)
     const adminAccounts = accounts.filter(a => a.user_id === null);
-    const adminStats = getProcessedEmailStats();
+    const adminStats = await getProcessedEmailStats();
 
     res.json({
       overall: {
@@ -84,7 +84,7 @@ router.get('/stats', (req, res) => {
 });
 
 // GET /api/admin/monitor/logs - Get all logs (with optional filters)
-router.get('/logs', (req, res) => {
+router.get('/logs', async (req, res) => {
   try {
     const { limit = 50, offset = 0, status, userId, accountId } = req.query;
 
@@ -97,10 +97,10 @@ router.get('/logs', (req, res) => {
     if (userId) options.userId = parseInt(userId);
     if (accountId) options.accountId = parseInt(accountId);
 
-    const logs = getProcessedEmails(options);
+    const logs = await getProcessedEmails(options);
 
     // Enrich with account info
-    const accounts = getAllAccounts();
+    const accounts = await getAllAccounts();
     const accountMap = {};
     for (const account of accounts) {
       accountMap[account.id] = account;
@@ -119,11 +119,11 @@ router.get('/logs', (req, res) => {
 });
 
 // GET /api/admin/monitor/overview - Quick dashboard overview
-router.get('/overview', (req, res) => {
+router.get('/overview', async (req, res) => {
   try {
-    const users = getAllUsers();
-    const accounts = getAllAccounts();
-    const stats = getProcessedEmailStats();
+    const users = await getAllUsers();
+    const accounts = await getAllAccounts();
+    const stats = await getProcessedEmailStats();
 
     const overview = {
       users: {

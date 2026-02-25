@@ -85,7 +85,7 @@
   <div id="login-page" class="hidden">
     <div class="login-card">
       <h1>📧 さくらメール → Chatwork</h1>
-      <p>2段階認証でログイン</p>
+      <p>Chatwork認証でログイン</p>
 
       <div id="login-alert"></div>
 
@@ -101,7 +101,7 @@
       <form id="code-form" class="hidden">
         <div class="form-group">
           <label>認証コード（6桁） <input type="text" id="login-code" required maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label>
-          <small style="color: #666; display: block; margin-top: 0.5rem;">メールに送信された6桁のコードを入力してください</small>
+          <small style="color: #666; display: block; margin-top: 0.5rem;">Chatworkに届いた6桁のコードを入力してください</small>
         </div>
         <div class="btn-group">
           <button type="submit">ログイン</button>
@@ -284,7 +284,7 @@
           if (result.devCode) {
             alertDiv.innerHTML = `<div class="alert alert-info">【開発用】認証コード: <strong>${result.devCode}</strong></div>`;
           } else {
-            alertDiv.innerHTML = `<div class="alert alert-success">認証コードを ${email} に送信しました</div>`;
+            alertDiv.innerHTML = `<div class="alert alert-success">${result.message || 'Chatworkに認証コードを送信しました'}</div>`;
           }
         } else {
           alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'コード送信に失敗しました'}</div>`;
@@ -998,10 +998,9 @@
         const file = e.target.files[0];
         if (!file) return;
 
-        try {
-          // Read file as base64
-          const reader = new FileReader();
-          reader.onload = async (event) => {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
             const base64Data = event.target.result.split(',')[1];
 
             const res = await fetch(`${API_BASE}/api/rules/bulk/import-excel`, {
@@ -1021,13 +1020,15 @@
                 }
               }
               alert(message);
-              navigate('/rules'); // Refresh
-          } else {
-            alert('インポートできませんでした');
+              navigate('/rules');
+            } else {
+              alert('インポートできませんでした');
+            }
+          } catch (err) {
+            alert('インポートに失敗しました: ' + err.message);
           }
-        } catch (err) {
-          alert('インポートに失敗しました: ' + err.message);
-        }
+        };
+        reader.readAsDataURL(file);
       };
 
       input.click();

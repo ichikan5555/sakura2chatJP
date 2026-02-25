@@ -12,8 +12,8 @@ const SETTING_KEYS = [
 ];
 
 // GET /api/settings
-router.get('/', (req, res) => {
-  const all = getAllSettings();
+router.get('/', async (req, res) => {
+  const all = await getAllSettings();
   const safe = {};
   for (const key of SETTING_KEYS) {
     const val = all[key] || '';
@@ -40,8 +40,9 @@ router.put('/', async (req, res, next) => {
       }
     }
     if (Object.keys(toSave).length > 0) {
-      setSettings(toSave);
-      reloadSettings(getAllSettings);
+      await setSettings(toSave);
+      const freshSettings = await getAllSettings();
+      reloadSettings(() => freshSettings);
       logger.info(`Settings updated: ${Object.keys(toSave).join(', ')}`);
     }
     res.json({ success: true, message: '設定を保存しました' });

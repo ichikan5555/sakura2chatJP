@@ -1,4 +1,4 @@
-import { getDb } from './database.js';
+import { getDb } from './database.sqlite.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
