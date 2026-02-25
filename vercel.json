@@ -1,11 +1,4 @@
 {
-  "version": 2,
-  "framework": null,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
