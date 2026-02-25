@@ -142,6 +142,8 @@ export async function deleteRule(id) { }
 
 // ==================== Logs (Stub) ====================
 export async function getAllProcessedEmails(options = {}) { return []; }
+export async function getProcessedEmails(options = {}) { return []; }
+export async function getProcessedEmailStats() { return { total: 0, sent: 0, failed: 0, skipped: 0 }; }
 export async function getProcessedEmailsByUserId(userId, options = {}) { return []; }
 export async function createProcessedEmail(data) { return null; }
 export async function isEmailProcessed(accountId, uid) { return false; }
