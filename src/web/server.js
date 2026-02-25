@@ -1,12 +1,11 @@
 import express from 'express';
 import path from 'path';
 import { config } from '../config.js';
-import { sessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import rulesRouter from './routes/rules.js';
 import statusRouter from './routes/status.js';
 import logsRouter from './routes/logs.js';
-import authRouter from './routes/auth.js';
+import authRouter, { sessionMiddleware } from './routes/auth-2fa.js';
 import chatworkRouter from './routes/chatwork.js';
 import settingsRouter from './routes/settings.js';
 import ruleImportExportRouter from './routes/ruleImportExport.js';

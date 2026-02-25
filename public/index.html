@@ -85,16 +85,28 @@
   <div id="login-page" class="hidden">
     <div class="login-card">
       <h1>📧 さくらメール → Chatwork</h1>
-      <p>管理画面にログイン</p>
+      <p>2段階認証でログイン</p>
 
       <div id="login-alert"></div>
 
-      <!-- ログインフォーム -->
-      <form id="login-form">
+      <!-- ステップ1: メールアドレス入力 -->
+      <form id="email-form">
         <div class="form-group">
-          <label>パスワード <input type="password" id="login-password" required autofocus></label>
+          <label>メールアドレス <input type="email" id="login-email" required autofocus placeholder="admin@example.com"></label>
         </div>
-        <button type="submit">ログイン</button>
+        <button type="submit">認証コードを送信</button>
+      </form>
+
+      <!-- ステップ2: コード入力 -->
+      <form id="code-form" class="hidden">
+        <div class="form-group">
+          <label>認証コード（6桁） <input type="text" id="login-code" required maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label>
+          <small style="color: #666; display: block; margin-top: 0.5rem;">メールに送信された6桁のコードを入力してください</small>
+        </div>
+        <div class="btn-group">
+          <button type="submit">ログイン</button>
+          <button type="button" class="secondary" onclick="backToEmail()">戻る</button>
+        </div>
       </form>
     </div>
   </div>
@@ -245,17 +257,54 @@
     let userId = null;
     let username = null;
 
-    // シンプルログイン（管理者のみ）
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    let currentEmail = '';
+
+    // ステップ1: メールアドレス送信
+    document.getElementById('email-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const password = document.getElementById('login-password').value;
+      const email = document.getElementById('login-email').value;
       const alertDiv = document.getElementById('login-alert');
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, {
+        const res = await fetch(`${API_BASE}/api/auth/send-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ email })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          currentEmail = email;
+          document.getElementById('email-form').classList.add('hidden');
+          document.getElementById('code-form').classList.remove('hidden');
+          document.getElementById('login-code').focus();
+
+          // Show code in alert for development
+          if (result.devCode) {
+            alertDiv.innerHTML = `<div class="alert alert-info">【開発用】認証コード: <strong>${result.devCode}</strong></div>`;
+          } else {
+            alertDiv.innerHTML = `<div class="alert alert-success">認証コードを ${email} に送信しました</div>`;
+          }
+        } else {
+          alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'コード送信に失敗しました'}</div>`;
+        }
+      } catch (err) {
+        alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+      }
+    });
+
+    // ステップ2: コード検証
+    document.getElementById('code-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('login-code').value;
+      const alertDiv = document.getElementById('login-alert');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/verify-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentEmail, code })
         });
 
         const result = await res.json();
@@ -264,12 +313,21 @@
           isLoggedIn = true;
           afterLogin();
         } else {
-          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'パスワードが間違っています') + '</div>';
+          alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'コードが間違っています'}</div>`;
         }
       } catch (err) {
-        alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
+        alertDiv.innerHTML = '<div class="alert alert-error">認証に失敗しました</div>';
       }
     });
+
+    // 戻るボタン
+    function backToEmail() {
+      document.getElementById('code-form').classList.add('hidden');
+      document.getElementById('email-form').classList.remove('hidden');
+      document.getElementById('login-code').value = '';
+      document.getElementById('login-alert').innerHTML = '';
+      document.getElementById('login-email').focus();
+    }
 
     // ログイン後の処理
     function afterLogin() {
