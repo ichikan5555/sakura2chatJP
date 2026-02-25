@@ -41,9 +41,11 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/admin/users - Create new user
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const { username, password, email, display_name, enabled } = req.body;
+    const { username, password, enabled } = req.body;
+
+    console.log('Creating user with data:', { username, password: password ? '***' : undefined, enabled });
 
     if (!username || !password) {
       return res.status(400).json({ error: 'ユーザーIDとパスワードは必須です' });
@@ -53,11 +55,11 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'パスワードは4文字以上である必要があります' });
     }
 
-    const user = createUser({
+    const user = await createUser({
       username,
       password,
-      email: email || null,
-      display_name: display_name || null,
+      email: username, // Use username as email
+      display_name: username, // Use username as display name
       enabled: enabled !== undefined ? enabled : 1
     });
 
@@ -68,7 +70,7 @@ router.post('/', (req, res) => {
       return res.status(409).json({ error: 'このユーザーIDは既に使用されています' });
     }
     logger.error('Error creating user:', error);
-    res.status(500).json({ error: 'ユーザーの作成に失敗しました' });
+    res.status(500).json({ error: 'ユーザーの作成に失敗しました', details: error.message });
   }
 });
 

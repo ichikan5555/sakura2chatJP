@@ -2,17 +2,18 @@ import { Router } from 'express';
 import { getAllRules, createRule } from '../../db/database.js';
 import { requireAuth } from '../middleware/session.js';
 import { logger } from '../../logger.js';
+import * as XLSX from 'xlsx';
 
 const router = Router();
 router.use(requireAuth);
 
-// GET /api/rules/export - Export rules as CSV
-router.get('/export', (req, res) => {
+// GET /api/rules/bulk/export - Export rules as CSV
+router.get('/export', async (req, res) => {
   try {
-    const rules = getAllRules();
+    const rules = await getAllRules();
 
     // CSV header
-    const header = 'ルール名,送信者メアド,件名キーワード,転送先ルームID\n';
+    const header = 'ルール名,受信メールアドレス,相手メールアドレス,受信件名（部分一致）,チャットワークルームID\n';
 
     // Convert rules to CSV rows
     const rows = rules.map(rule => {
@@ -60,8 +61,8 @@ router.get('/export', (req, res) => {
   }
 });
 
-// POST /api/rules/import - Import rules from CSV
-router.post('/import', (req, res) => {
+// POST /api/rules/bulk/import - Import rules from CSV
+router.post('/import', async (req, res) => {
   try {
     const { csvText } = req.body;
     if (!csvText) {
@@ -135,7 +136,7 @@ router.post('/import', (req, res) => {
         }
 
         // Create rule
-        createRule({
+        await createRule({
           name: name.trim(),
           enabled: 1,
           source: 'imap',
@@ -268,5 +269,142 @@ function parseSearchSyntax(fieldValue, defaultField) {
 
   return conditions;
 }
+
+// GET /api/rules/bulk/export-excel - Export rules as Excel
+router.get('/export-excel', async (req, res) => {
+  try {
+    const rules = await getAllRules();
+
+    // Prepare data for Excel
+    const data = rules.map(rule => {
+      let conditions;
+      try {
+        conditions = typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions;
+      } catch {
+        conditions = [];
+      }
+
+      let senderValue = '';
+      let subjectValue = '';
+
+      for (const cond of conditions) {
+        if (cond.field === 'sender' && cond.operator === 'contains') {
+          senderValue = cond.value;
+        }
+        if (cond.field === 'subject' && cond.operator === 'contains') {
+          subjectValue = cond.value;
+        }
+      }
+
+      // Get account username if account_id is specified
+      const accountUsername = rule.account_id ? `Account ${rule.account_id}` : '全アカウント';
+
+      return {
+        'ルール名': rule.name,
+        '受信メールアドレス': accountUsername,
+        '相手メールアドレス': senderValue,
+        '受信件名（部分一致）': subjectValue,
+        'チャットワークルームID': rule.chatwork_room_id
+      };
+    });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, 'ルール');
+
+    // Generate Excel file
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="rules.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    logger.error(`Excel export error: ${err.message}`);
+    res.status(500).json({ error: 'エクスポートに失敗しました' });
+  }
+});
+
+// POST /api/rules/bulk/import-excel - Import rules from Excel
+router.post('/import-excel', async (req, res) => {
+  try {
+    const { fileData } = req.body;
+    if (!fileData) {
+      return res.status(400).json({ error: 'ファイルデータがありません' });
+    }
+
+    // Decode base64
+    const buffer = Buffer.from(fileData, 'base64');
+
+    // Read Excel file
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws);
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+
+      try {
+        const name = row['ルール名'];
+        const accountEmail = row['受信メールアドレス'] || '';
+        const sender = row['相手メールアドレス'] || '';
+        const subject = row['受信件名（部分一致）'] || row['受信件名(部分一致)'] || '';
+        const roomId = row['チャットワークルームID'];
+
+        if (!name || !name.trim()) {
+          results.failed++;
+          results.errors.push(`${i + 2}行目: ルール名が必要です`);
+          continue;
+        }
+
+        if (!roomId) {
+          results.failed++;
+          results.errors.push(`${i + 2}行目: 転送先ルームIDが必要です`);
+          continue;
+        }
+
+        // Build conditions
+        const conditions = [];
+        if (sender && sender.trim()) {
+          const senderConditions = parseSearchSyntax(sender, 'sender');
+          conditions.push(...senderConditions);
+        }
+        if (subject && subject.trim()) {
+          const subjectConditions = parseSearchSyntax(subject, 'subject');
+          conditions.push(...subjectConditions);
+        }
+
+        // Create rule
+        await createRule({
+          name: name.trim(),
+          enabled: 1,
+          source: 'imap',
+          match_type: 'any',
+          conditions,
+          chatwork_room_id: String(roomId).trim(),
+          message_template: '',
+          priority: 0,
+        });
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push(`${i + 2}行目: ${err.message}`);
+      }
+    }
+
+    logger.info(`Excel import: ${results.success} success, ${results.failed} failed`);
+    res.json(results);
+  } catch (err) {
+    logger.error(`Excel import error: ${err.message}`);
+    res.status(500).json({ error: 'インポートに失敗しました' });
+  }
+});
 
 export default router;

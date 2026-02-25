@@ -67,6 +67,17 @@
     .login-tab { flex: 1; padding: 0.75rem; border: 2px solid #ddd; background: white; border-radius: 6px; cursor: pointer; text-align: center; font-weight: 500; transition: all 0.2s; }
     .login-tab:hover { background: #f8f9fa; }
     .login-tab.active { background: #0066cc; color: white; border-color: #0066cc; }
+
+    /* Toggle Switch */
+    .toggle-container { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; border: 2px solid #dee2e6; }
+    .toggle-container label { font-weight: 600; font-size: 1.1rem; margin: 0; }
+    .toggle-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .toggle-slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    .toggle-switch input:checked + .toggle-slider { background-color: #28a745; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(26px); }
+    .toggle-label { font-size: 0.9rem; color: #666; }
   </style>
 </head>
 <body>
@@ -74,33 +85,16 @@
   <div id="login-page" class="hidden">
     <div class="login-card">
       <h1>📧 さくらメール → Chatwork</h1>
-      <p>転送システム ログイン</p>
-
-      <!-- ログインタブ -->
-      <div class="login-tabs">
-        <button type="button" class="login-tab active" data-type="admin">👤 管理者</button>
-        <button type="button" class="login-tab" data-type="user">👥 ユーザー</button>
-      </div>
+      <p>管理画面にログイン</p>
 
       <div id="login-alert"></div>
 
-      <!-- 管理者ログインフォーム -->
-      <form id="admin-login-form">
+      <!-- ログインフォーム -->
+      <form id="login-form">
         <div class="form-group">
-          <label>管理者パスワード <input type="password" id="admin-password" required autofocus></label>
+          <label>パスワード <input type="password" id="login-password" required autofocus></label>
         </div>
-        <button type="submit">管理者ログイン</button>
-      </form>
-
-      <!-- ユーザーログインフォーム -->
-      <form id="user-login-form" class="hidden">
-        <div class="form-group">
-          <label>ユーザーID <input type="text" id="user-username" required></label>
-        </div>
-        <div class="form-group">
-          <label>パスワード <input type="password" id="user-password" required></label>
-        </div>
-        <button type="submit">ユーザーログイン</button>
+        <button type="submit">ログイン</button>
       </form>
     </div>
   </div>
@@ -131,29 +125,26 @@
       <form id="account-form">
         <input type="hidden" id="account-id">
         <div class="form-group">
-          <label>アカウント名 <input type="text" id="account-name" required></label>
+          <label>ユーザー名（メールアドレス） <input type="email" id="account-username" required placeholder="user@example.com"></label>
         </div>
         <div class="form-group">
-          <label>IMAPサーバー <input type="text" id="account-host" required placeholder="monoshare.sakura.ne.jp"></label>
+          <label>IMAPサーバー <input type="text" id="account-host" value="monoshare.sakura.ne.jp" required></label>
         </div>
         <div class="form-group">
           <label>ポート <input type="number" id="account-port" value="993" required></label>
         </div>
         <div class="form-group">
-          <label>ユーザー名（メールアドレス） <input type="text" id="account-username" required placeholder="user@example.com"></label>
-        </div>
-        <div class="form-group">
           <label>パスワードモード
             <select id="account-password-mode" onchange="togglePasswordFields()">
+              <option value="derive" selected>自動（社内ルール）</option>
               <option value="manual">手動入力</option>
-              <option value="derive">自動生成（社内ルール）</option>
             </select>
           </label>
         </div>
-        <div id="manual-password-group" class="form-group">
+        <div id="manual-password-group" class="form-group hidden">
           <label>パスワード <input type="password" id="account-password"></label>
         </div>
-        <div id="derive-password-group" class="form-group hidden">
+        <div id="derive-password-group" class="form-group">
           <label>PREFIX（固定） <input type="text" id="account-password-prefix" placeholder="araki0404."></label>
           <label>SUFFIX（固定） <input type="text" id="account-password-suffix" placeholder="junpei0822."></label>
           <small style="color: #666; display: block; margin-top: 0.5rem;">
@@ -169,9 +160,20 @@
             </select>
           </label>
         </div>
-        <div class="form-group">
-          <label><input type="checkbox" id="account-enabled" checked> 有効</label>
+        <div class="toggle-container">
+          <label>アカウント状態</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="account-enabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="account-enabled-label">✅ 有効（メール監視ON）</span>
         </div>
+        <script>
+          document.getElementById('account-enabled').addEventListener('change', (e) => {
+            document.getElementById('account-enabled-label').textContent =
+              e.target.checked ? '✅ 有効（メール監視ON）' : '❌ 無効（メール監視OFF）';
+          });
+        </script>
         <div class="btn-group">
           <button type="submit">保存</button>
           <button type="button" class="secondary" onclick="closeAccountModal()">キャンセル</button>
@@ -180,34 +182,56 @@
     </div>
   </div>
 
-  <!-- ユーザー追加・編集モーダル -->
-  <div id="user-modal" class="modal">
+  <!-- ルール追加・編集モーダル -->
+  <div id="rule-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="user-modal-title">ユーザー追加</h3>
-        <button class="modal-close" onclick="closeUserModal()">×</button>
+        <h3 id="rule-modal-title">ルール追加</h3>
+        <button class="modal-close" onclick="closeRuleModal()">×</button>
       </div>
-      <form id="user-form">
-        <input type="hidden" id="user-id">
-        <div id="user-alert"></div>
+      <form id="rule-form">
+        <input type="hidden" id="rule-id">
+        <div id="rule-alert"></div>
         <div class="form-group">
-          <label>ユーザーID（ログイン用）<input type="text" id="user-username" required></label>
-        </div>
-        <div class="form-group" id="user-password-field">
-          <label>パスワード <input type="password" id="user-password" required></label>
+          <label>ルール名 <input type="text" id="rule-name" required placeholder="例：注文通知"></label>
         </div>
         <div class="form-group">
-          <label>メールアドレス <input type="email" id="user-email"></label>
+          <label>対象アカウント
+            <select id="rule-account-id">
+              <option value="">全アカウント</option>
+            </select>
+          </label>
         </div>
         <div class="form-group">
-          <label>表示名 <input type="text" id="user-display-name"></label>
+          <label>送信者条件 <input type="text" id="rule-sender" placeholder="例：@example.com"></label>
+          <small style="color: #666;">部分一致で検索（空欄=全て）</small>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" id="user-enabled" checked> 有効</label>
+          <label>件名条件 <input type="text" id="rule-subject" placeholder="例：注文"></label>
+          <small style="color: #666;">部分一致で検索（空欄=全て）</small>
         </div>
+        <div class="form-group">
+          <label>Chatworkルーム <input type="text" id="rule-chatwork-room" required placeholder="123456789"></label>
+          <small style="color: #666;">ChatworkルームIDを入力</small>
+        </div>
+        <input type="hidden" id="rule-message-template" value="件名：　{subject}&#10;&#10;内容：　{body}&#10;&#10;日時：　{date}&#10;&#10;アカウント：　{username}&#10;&#10;ルール名：　{rule_name}">
+        <div class="toggle-container">
+          <label>ルール状態</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="rule-enabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="rule-enabled-label">✅ 有効（転送ON）</span>
+        </div>
+        <script>
+          document.getElementById('rule-enabled').addEventListener('change', (e) => {
+            document.getElementById('rule-enabled-label').textContent =
+              e.target.checked ? '✅ 有効（転送ON）' : '❌ 無効（転送OFF）';
+          });
+        </script>
         <div class="btn-group">
           <button type="submit">保存</button>
-          <button type="button" class="secondary" onclick="closeUserModal()">キャンセル</button>
+          <button type="button" class="secondary" onclick="closeRuleModal()">キャンセル</button>
         </div>
       </form>
     </div>
@@ -221,40 +245,14 @@
     let userId = null;
     let username = null;
 
-    // ログインタブ切り替え
-    console.log('Setting up login tab listeners...');
-    document.querySelectorAll('.login-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        console.log('Tab clicked:', tab.dataset.type);
-        const type = tab.dataset.type;
-        document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        if (type === 'admin') {
-          document.getElementById('admin-login-form').classList.remove('hidden');
-          document.getElementById('user-login-form').classList.add('hidden');
-          document.getElementById('admin-password').focus();
-        } else {
-          document.getElementById('admin-login-form').classList.add('hidden');
-          document.getElementById('user-login-form').classList.remove('hidden');
-          document.getElementById('user-username').focus();
-        }
-      });
-    });
-
-    // 管理者ログイン
-    console.log('Setting up admin login listener...');
-    const adminForm = document.getElementById('admin-login-form');
-    console.log('Admin form element:', adminForm);
-    if (adminForm) {
-      adminForm.addEventListener('submit', async (e) => {
-        console.log('Admin login form submitted!');
-        e.preventDefault();
-        const password = document.getElementById('admin-password').value;
-        const alertDiv = document.getElementById('login-alert');
+    // シンプルログイン（管理者のみ）
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('login-password').value;
+      const alertDiv = document.getElementById('login-alert');
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/admin/login`, {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password })
@@ -264,62 +262,17 @@
 
         if (result.success) {
           isLoggedIn = true;
-          userType = 'admin';
-          userId = null;
-          username = null;
           afterLogin();
         } else {
-          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
+          alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'パスワードが間違っています') + '</div>';
         }
       } catch (err) {
         alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
       }
-      });
-    } else {
-      console.error('Admin login form not found!');
-    }
-
-    // ユーザーログイン
-    console.log('Setting up user login listener...');
-    const userForm = document.getElementById('user-login-form');
-    console.log('User form element:', userForm);
-    if (userForm) {
-      userForm.addEventListener('submit', async (e) => {
-        console.log('User login form submitted!');
-        e.preventDefault();
-        const usernameInput = document.getElementById('user-username').value;
-        const password = document.getElementById('user-password').value;
-        const alertDiv = document.getElementById('login-alert');
-
-        try {
-          const res = await fetch(`${API_BASE}/api/auth/user/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: usernameInput, password })
-          });
-
-          const result = await res.json();
-
-          if (result.success) {
-            isLoggedIn = true;
-            userType = 'user';
-            userId = result.userId;
-            username = result.username;
-            afterLogin();
-          } else {
-            alertDiv.innerHTML = '<div class="alert alert-error">' + (result.error || 'ログインに失敗しました') + '</div>';
-          }
-        } catch (err) {
-          alertDiv.innerHTML = '<div class="alert alert-error">ログインに失敗しました</div>';
-        }
-      });
-    } else {
-      console.error('User login form not found!');
-    }
+    });
 
     // ログイン後の処理
     function afterLogin() {
-      console.log('afterLogin called');
       document.getElementById('login-page').style.display = 'none';
       document.getElementById('main-app').style.display = 'block';
       updateNavigation();
@@ -329,39 +282,32 @@
     // ナビゲーションの更新（管理者/ユーザーで切り替え）
     function updateNavigation() {
       const nav = document.getElementById('main-nav');
-      if (userType === 'admin') {
-        nav.innerHTML = `
-          <a href="#/" data-route="/" class="active">ダッシュボード</a>
-          <a href="#/users" data-route="/users">👤 ユーザー管理</a>
-          <a href="#/accounts" data-route="/accounts">アカウント管理</a>
-          <a href="#/rules" data-route="/rules">ルール管理</a>
-          <a href="#/logs" data-route="/logs">転送ログ</a>
-          <a href="#/settings" data-route="/settings">設定</a>
-          <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
-        `;
-      } else {
-        nav.innerHTML = `
-          <a href="#/" data-route="/" class="active">ダッシュボード</a>
-          <a href="#/my-accounts" data-route="/my-accounts">📧 メールアカウント</a>
-          <a href="#/my-rules" data-route="/my-rules">📝 転送ルール</a>
-          <a href="#/my-logs" data-route="/my-logs">📊 転送履歴</a>
-          <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト (${username})</a>
-        `;
-      }
+      nav.innerHTML = `
+        <a href="#/" data-route="/" class="active">ダッシュボード</a>
+        <a href="#/accounts" data-route="/accounts">📧 メールアカウント管理</a>
+        <a href="#/rules" data-route="/rules">📝 転送ルール</a>
+        <a href="#/logs" data-route="/logs">📊 転送履歴</a>
+        <a href="#/settings" data-route="/settings">⚙️ 設定</a>
+        <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
+      `;
+
+      // ナビゲーションリンクのクリックイベント
+      document.querySelectorAll('nav a[data-route]').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const route = link.dataset.route;
+          navigate(route);
+        });
+      });
 
       // ログアウトボタンの再設定
       document.getElementById('logout-btn').addEventListener('click', async (e) => {
         e.preventDefault();
         await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
         isLoggedIn = false;
-        userType = null;
-        userId = null;
-        username = null;
         document.getElementById('main-app').style.display = 'none';
         document.getElementById('login-page').style.display = 'flex';
-        document.getElementById('admin-password').value = '';
-        document.getElementById('user-username').value = '';
-        document.getElementById('user-password').value = '';
+        document.getElementById('login-password').value = '';
         document.getElementById('login-alert').innerHTML = '';
       });
     }
@@ -380,13 +326,9 @@
       const app = document.getElementById('app');
       switch(currentRoute) {
         case '/': renderDashboard(app); break;
-        case '/users': renderUsers(app); break; // 管理者専用
         case '/accounts': renderAccounts(app); break;
-        case '/my-accounts': renderAccounts(app); break; // ユーザー用（既存関数を再利用）
         case '/rules': renderRules(app); break;
-        case '/my-rules': renderRules(app); break; // ユーザー用（既存関数を再利用）
         case '/logs': renderLogs(app); break;
-        case '/my-logs': renderLogs(app); break; // ユーザー用（既存関数を再利用）
         case '/settings': renderSettings(app); break;
         default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
       }
@@ -489,8 +431,6 @@
         <tr>
           <td>${user.id}</td>
           <td>${user.username}</td>
-          <td>${user.email || '-'}</td>
-          <td>${user.display_name || '-'}</td>
           <td><span class="badge ${user.enabled ? 'badge-success' : 'badge-error'}">${user.enabled ? '有効' : '無効'}</span></td>
           <td>${new Date(user.created_at).toLocaleString('ja-JP')}</td>
           <td>
@@ -513,15 +453,13 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>ユーザーID</th>
-                <th>メールアドレス</th>
-                <th>表示名</th>
+                <th>ユーザーID（メールアドレス）</th>
                 <th>状態</th>
                 <th>作成日時</th>
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="7">ユーザーがいません</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="5">ユーザーがいません</td></tr>'}</tbody>
           </table>
         </div>
       `;
@@ -643,10 +581,9 @@
       if (accountId) {
         fetch(`${API_BASE}/api/accounts/${accountId}`).then(r => r.json()).then(acc => {
           document.getElementById('account-id').value = acc.id;
-          document.getElementById('account-name').value = acc.name;
+          document.getElementById('account-username').value = acc.username;
           document.getElementById('account-host').value = acc.host;
           document.getElementById('account-port').value = acc.port;
-          document.getElementById('account-username').value = acc.username;
           document.getElementById('account-password-mode').value = acc.password_mode;
           document.getElementById('account-password-prefix').value = acc.password_prefix || '';
           document.getElementById('account-password-suffix').value = acc.password_suffix || '';
@@ -700,8 +637,6 @@
         fetch(`${API_BASE}/api/admin/users/${userId}`).then(res => res.json()).then(user => {
           document.getElementById('user-id').value = user.id;
           document.getElementById('user-username').value = user.username;
-          document.getElementById('user-email').value = user.email || '';
-          document.getElementById('user-display-name').value = user.display_name || '';
           document.getElementById('user-enabled').checked = user.enabled === 1;
         });
       }
@@ -771,8 +706,6 @@
 
       const data = {
         username: document.getElementById('user-username').value,
-        email: document.getElementById('user-email').value,
-        display_name: document.getElementById('user-display-name').value,
         enabled: document.getElementById('user-enabled').checked ? 1 : 0
       };
 
@@ -808,11 +741,12 @@
       e.preventDefault();
 
       const id = document.getElementById('account-id').value;
+      const username = document.getElementById('account-username').value;
       const data = {
-        name: document.getElementById('account-name').value,
+        name: username, // アカウント名 = ユーザー名
         host: document.getElementById('account-host').value,
         port: parseInt(document.getElementById('account-port').value),
-        username: document.getElementById('account-username').value,
+        username: username,
         password_mode: document.getElementById('account-password-mode').value,
         poll_speed: document.getElementById('account-poll-speed').value,
         enabled: document.getElementById('account-enabled').checked ? 1 : 0,
@@ -871,16 +805,220 @@
       }
     }
 
+    // Rule Modal Functions
+    async function openRuleModal(ruleId = null) {
+      const modal = document.getElementById('rule-modal');
+      const form = document.getElementById('rule-form');
+      const title = document.getElementById('rule-modal-title');
+
+      form.reset();
+      document.getElementById('rule-id').value = '';
+      document.getElementById('rule-alert').innerHTML = '';
+      title.textContent = 'ルール追加';
+
+      // Load accounts for dropdown
+      const accountsRes = await fetch(`${API_BASE}/api/accounts`);
+      const accounts = await accountsRes.json();
+      const accountSelect = document.getElementById('rule-account-id');
+      accountSelect.innerHTML = '<option value="">全アカウント</option>' +
+        accounts.map(acc => `<option value="${acc.id}">${acc.name} (${acc.username})</option>`).join('');
+
+      if (ruleId) {
+        title.textContent = 'ルール編集';
+        const res = await fetch(`${API_BASE}/api/rules/${ruleId}`);
+        const rule = await res.json();
+
+        document.getElementById('rule-id').value = rule.id;
+        document.getElementById('rule-name').value = rule.name;
+        document.getElementById('rule-account-id').value = rule.account_id || '';
+        document.getElementById('rule-chatwork-room').value = rule.chatwork_room_id;
+        document.getElementById('rule-message-template').value = rule.message_template || '';
+        document.getElementById('rule-enabled').checked = rule.enabled === 1;
+
+        // Set conditions (simple sender/subject)
+        if (rule.conditions && rule.conditions.length > 0) {
+          const senderCond = rule.conditions.find(c => c.field === 'sender');
+          const subjectCond = rule.conditions.find(c => c.field === 'subject');
+          if (senderCond) document.getElementById('rule-sender').value = senderCond.value;
+          if (subjectCond) document.getElementById('rule-subject').value = subjectCond.value;
+        }
+      }
+
+      modal.classList.add('show');
+    }
+
+    function closeRuleModal() {
+      document.getElementById('rule-modal').classList.remove('show');
+    }
+
+    async function editRule(ruleId) {
+      openRuleModal(ruleId);
+    }
+
+    async function deleteRule(ruleId, name) {
+      if (!confirm(`ルール「${name}」を削除しますか？`)) return;
+
+      const res = await fetch(`${API_BASE}/api/rules/${ruleId}`, { method: 'DELETE' });
+      if (res.ok) {
+        navigate('/rules');
+      } else {
+        alert('削除に失敗しました');
+      }
+    }
+
+    document.getElementById('rule-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertDiv = document.getElementById('rule-alert');
+      const id = document.getElementById('rule-id').value;
+
+      // Build conditions array
+      const conditions = [];
+      const sender = document.getElementById('rule-sender').value;
+      const subject = document.getElementById('rule-subject').value;
+
+      if (sender) {
+        conditions.push({ field: 'sender', operator: 'contains', value: sender });
+      }
+      if (subject) {
+        conditions.push({ field: 'subject', operator: 'contains', value: subject });
+      }
+
+      const data = {
+        name: document.getElementById('rule-name').value,
+        account_id: document.getElementById('rule-account-id').value || null,
+        chatwork_room_id: document.getElementById('rule-chatwork-room').value,
+        message_template: document.getElementById('rule-message-template').value || '',
+        conditions: conditions,
+        match_type: 'all',
+        source: 'imap',
+        enabled: document.getElementById('rule-enabled').checked ? 1 : 0
+      };
+
+      const url = id ? `${API_BASE}/api/rules/${id}` : `${API_BASE}/api/rules`;
+      const method = id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        closeRuleModal();
+        navigate('/rules');
+      } else {
+        const err = await res.json();
+        alertDiv.innerHTML = `<div class="alert alert-error">${err.error || '保存に失敗しました'}</div>`;
+      }
+    });
+
+    // Excel Export
+    async function exportRulesExcel() {
+      try {
+        const res = await fetch(`${API_BASE}/api/rules/bulk/export-excel`);
+        const blob = await res.blob();
+
+        // Download Excel file
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `rules_${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.click();
+
+        alert('Excelをダウンロードしました');
+      } catch (err) {
+        alert('エクスポートに失敗しました: ' + err.message);
+      }
+    }
+
+    // Excel Import
+    function importRulesExcel() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xlsx,.xls';
+
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          // Read file as base64
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const base64Data = event.target.result.split(',')[1];
+
+            const res = await fetch(`${API_BASE}/api/rules/bulk/import-excel`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileData: base64Data })
+            });
+
+            const result = await res.json();
+
+            if (result.success > 0 || result.failed > 0) {
+              let message = `インポート完了\n成功: ${result.success}件\n失敗: ${result.failed}件`;
+              if (result.errors && result.errors.length > 0) {
+                message += '\n\nエラー:\n' + result.errors.slice(0, 5).join('\n');
+                if (result.errors.length > 5) {
+                  message += `\n... 他 ${result.errors.length - 5}件`;
+                }
+              }
+              alert(message);
+              navigate('/rules'); // Refresh
+          } else {
+            alert('インポートできませんでした');
+          }
+        } catch (err) {
+          alert('インポートに失敗しました: ' + err.message);
+        }
+      };
+
+      input.click();
+    }
+
     // Rules (simplified)
     async function renderRules(app) {
       const res = await fetch(`${API_BASE}/api/rules`);
       const rules = await res.json();
+
+      const rows = rules.map(rule => `
+        <tr>
+          <td>${rule.id}</td>
+          <td>${rule.name}</td>
+          <td>${rule.account_id || '全アカウント'}</td>
+          <td>${rule.chatwork_room_id}</td>
+          <td><span class="badge ${rule.enabled ? 'badge-success' : 'badge-error'}">${rule.enabled ? '有効' : '無効'}</span></td>
+          <td>
+            <div class="btn-group">
+              <button class="secondary" onclick="editRule(${rule.id})">編集</button>
+              <button class="danger" onclick="deleteRule(${rule.id}, '${rule.name}')">削除</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
       app.innerHTML = `
         <div class="card">
-          <h2>転送ルール</h2>
-          <p>ルール数: ${rules.length}</p>
-          <p>詳細なルール管理UIは省略しています。APIエンドポイントは実装済みです。</p>
-          <p>CSVインポート/エクスポート: <code>/api/rules/bulk/import</code> および <code>/api/rules/bulk/export</code></p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>📝 転送ルール</h2>
+            <div class="btn-group">
+              <button onclick="openRuleModal()">➕ ルール追加</button>
+              <button class="secondary" onclick="importRulesExcel()">📥 Excelインポート</button>
+              <button class="secondary" onclick="exportRulesExcel()">📤 Excelエクスポート</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>ルール名</th>
+                <th>対象アカウント</th>
+                <th>Chatworkルーム</th>
+                <th>状態</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="6">ルールがありません</td></tr>'}</tbody>
+          </table>
         </div>
       `;
     }
@@ -920,33 +1058,21 @@
     });
 
     // Check auth on page load
-    console.log('Checking authentication...');
     fetch(`${API_BASE}/api/auth/me`)
-      .then(res => {
-        console.log('Auth response status:', res.status);
-        return res.json();
-      })
+      .then(res => res.json())
       .then(data => {
-        console.log('Auth data:', data);
         if (data.loggedIn) {
           isLoggedIn = true;
-          userType = data.userType;
-          userId = data.userId || null;
-          username = data.username || null;
-          console.log('User is logged in as:', userType);
           document.getElementById('login-page').style.display = 'none';
           document.getElementById('main-app').style.display = 'block';
           updateNavigation();
           navigate(window.location.hash.slice(1) || '/');
         } else {
-          console.log('User is not logged in, showing login page');
           document.getElementById('login-page').style.display = 'flex';
           document.getElementById('main-app').style.display = 'none';
         }
       })
       .catch(err => {
-        console.error('Auth check failed:', err);
-        console.log('Showing login page due to error');
         document.getElementById('login-page').style.display = 'flex';
         document.getElementById('main-app').style.display = 'none';
       });
