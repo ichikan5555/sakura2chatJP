@@ -24,6 +24,7 @@ export function renderTemplate(template, message, rule) {
     sender: message.sender || '',
     senderEmail: message.senderEmail || '',
     senderName: message.senderName || '',
+    username: message.senderEmail || '',
     cc,
     bcc,
     ccLine: cc ? `CC: ${cc}\n` : '',
@@ -34,9 +35,12 @@ export function renderTemplate(template, message, rule) {
     bodyShort,
     snippet: message.snippet || '',
     ruleName: rule?.name || '',
+    rule_name: rule?.name || '',
   };
 
-  return tpl.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+  // Support both {var} and {{var}} syntax
+  return tpl.replace(/\{\{(\w+)\}\}|\{(\w+)\}/g, (match, doubleKey, singleKey) => {
+    const key = doubleKey || singleKey;
     return key in vars ? vars[key] : match;
   });
 }

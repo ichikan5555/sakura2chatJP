@@ -1,7 +1,19 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { sendMessage } from '../../chatwork/client.js';
 import { logger } from '../../logger.js';
+
+// 認証専用のChatwork送信（運用トークンとは別）
+async function sendAuthMessage(roomId, body) {
+  const token = process.env.CHATWORK_AUTH_TOKEN;
+  if (!token) throw new Error('CHATWORK_AUTH_TOKEN が未設定です');
+  const res = await fetch(`https://api.chatwork.com/v2/rooms/${roomId}/messages`, {
+    method: 'POST',
+    headers: { 'X-ChatWorkToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ body, self_unread: '0' }),
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`Chatwork API error ${res.status}: ${t}`); }
+  return res.json();
+}
 
 const router = Router();
 const COOKIE_NAME = 's2c_session';
@@ -34,16 +46,12 @@ setInterval(() => {
 
 // POST /api/auth/send-code - Send verification code
 router.post('/send-code', async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'メールアドレスを入力してください' });
-  }
-
   const adminMap = parseAdminEmails();
+  // emailが未指定なら最初の管理者を使用
+  const email = req.body.email || adminMap.keys().next().value;
 
-  if (!adminMap.has(email)) {
-    return res.status(401).json({ error: '登録されていないメールアドレスです' });
+  if (!email || !adminMap.has(email)) {
+    return res.status(401).json({ error: '管理者が登録されていません' });
   }
 
   // Generate 6-digit code
@@ -58,7 +66,7 @@ router.post('/send-code', async (req, res) => {
   if (roomId) {
     try {
       const body = `[info][title]認証コード[/title]${code}\n（5分間有効）[/info]`;
-      await sendMessage(roomId, body);
+      await sendAuthMessage(roomId, body);
       logger.info(`Verification code sent to Chatwork room ${roomId} for ${email}`);
       return res.json({ success: true, message: 'Chatworkに認証コードを送信しました' });
     } catch (err) {
@@ -78,10 +86,12 @@ router.post('/send-code', async (req, res) => {
 
 // POST /api/auth/verify-code - Verify code and login
 router.post('/verify-code', (req, res) => {
-  const { email, code } = req.body;
+  const adminMap = parseAdminEmails();
+  const email = req.body.email || adminMap.keys().next().value;
+  const { code } = req.body;
 
-  if (!email || !code) {
-    return res.status(400).json({ error: 'メールアドレスとコードを入力してください' });
+  if (!code) {
+    return res.status(400).json({ error: 'コードを入力してください' });
   }
 
   const stored = verificationCodes.get(email);

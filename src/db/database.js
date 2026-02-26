@@ -205,6 +205,17 @@ export async function recordProcessedEmail(data) {
   return db.recordProcessedEmail(data);
 }
 
+// Reprocess
+export async function clearSkippedEmails(accountId) {
+  const db = await getDbModule();
+  return db.clearSkippedEmails(accountId);
+}
+
+export async function resetPollerUid(accountId) {
+  const db = await getDbModule();
+  return db.resetPollerUid(accountId);
+}
+
 // Poller
 export async function getPollerState(accountId) {
   const db = await getDbModule();

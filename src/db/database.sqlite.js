@@ -257,6 +257,15 @@ export function recordProcessedEmail({ account_id, imap_uid, rule_id, sender, su
   ).run(account_id, imap_uid, rule_id, sender, subject, status, error_message, chatwork_room_id);
 }
 
+export function clearSkippedEmails(accountId) {
+  const result = getDb().prepare('DELETE FROM processed_emails WHERE account_id = ? AND status = ?').run(accountId, 'skipped');
+  return result.changes;
+}
+
+export function resetPollerUid(accountId) {
+  getDb().prepare('UPDATE poller_state SET last_uid = 0 WHERE account_id = ?').run(accountId);
+}
+
 export function getProcessedEmails({ limit = 50, offset = 0, status = null, accountId = null, userId = null } = {}) {
   let query = 'SELECT * FROM processed_emails';
   const params = [];

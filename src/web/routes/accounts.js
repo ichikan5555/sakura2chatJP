@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllAccounts, getAccountsByUserId, getAccountById, createAccount, updateAccount, deleteAccount } from '../../db/database.js';
+import { getAllAccounts, getAccountsByUserId, getAccountById, createAccount, updateAccount, deleteAccount, clearSkippedEmails, resetPollerUid } from '../../db/database.js';
 import { testImapConnection } from '../../imap/auth.js';
 import { startPollerForAccount, stopPollerForAccount, restartPollerForAccount } from '../../imap/poller.js';
 import { requireAuth } from '../middleware/session.js';
@@ -187,6 +187,36 @@ router.post('/:id/restart', async (req, res) => {
     res.json({ success: true, message: 'Poller restarted' });
   } else {
     res.status(400).json({ error: 'Account is disabled' });
+  }
+});
+
+// POST /api/accounts/:id/reprocess - skippedメール再処理（権限チェック）
+router.post('/:id/reprocess', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const account = await getAccountById(id);
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+
+    // 権限チェック：ユーザーは自分のアカウントのみ
+    if (req.auth.isUser && account.user_id !== req.auth.userId) {
+      return res.status(403).json({ error: 'アクセス権限がありません' });
+    }
+
+    // skipped記録を削除
+    const cleared = await clearSkippedEmails(id);
+    // last_uid=0にリセット
+    await resetPollerUid(id);
+
+    logger.info(`[${account.name}] Reprocess: cleared ${cleared} skipped emails, reset last_uid to 0`);
+
+    // ポーラーを再起動（初回ロジックで過去メールスキップ → 新着のみ転送）
+    if (account.enabled) {
+      restartPollerForAccount(account);
+    }
+
+    res.json({ success: true, cleared, message: `${cleared}件のskippedメールをクリアし、ポーラーをリセットしました` });
+  } catch (err) {
+    next(err);
   }
 });
 

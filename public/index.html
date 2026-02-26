@@ -69,10 +69,10 @@
     .login-tab.active { background: #0066cc; color: white; border-color: #0066cc; }
 
     /* Toggle Switch */
-    .toggle-container { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; border: 2px solid #dee2e6; }
+    .toggle-container { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; border: 2px solid #dee2e6; margin-bottom: 1rem; }
     .toggle-container label { font-weight: 600; font-size: 1.1rem; margin: 0; }
-    .toggle-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch { position: relative; display: inline-block; width: 60px; min-width: 60px; height: 34px; overflow: hidden; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; padding: 0; margin: 0; position: absolute; }
     .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
     .toggle-slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     .toggle-switch input:checked + .toggle-slider { background-color: #28a745; }
@@ -84,28 +84,25 @@
   <!-- ログインページ -->
   <div id="login-page" class="hidden">
     <div class="login-card">
-      <h1>📧 さくらメール → Chatwork</h1>
+      <h1>さくらメール → Chatwork</h1>
       <p>Chatwork認証でログイン</p>
 
       <div id="login-alert"></div>
 
-      <!-- ステップ1: メールアドレス入力 -->
-      <form id="email-form">
-        <div class="form-group">
-          <label>メールアドレス <input type="email" id="login-email" required autofocus placeholder="admin@example.com"></label>
-        </div>
-        <button type="submit">認証コードを送信</button>
-      </form>
+      <!-- ステップ1: ボタンでコード送信 -->
+      <div id="send-code-step">
+        <button id="send-code-btn" style="width: 100%; padding: 1rem; font-size: 1rem;">Chatworkに認証コードを送信</button>
+      </div>
 
       <!-- ステップ2: コード入力 -->
       <form id="code-form" class="hidden">
         <div class="form-group">
-          <label>認証コード（6桁） <input type="text" id="login-code" required maxlength="6" pattern="[0-9]{6}" placeholder="123456"></label>
+          <label>認証コード（6桁） <input type="text" id="login-code" required maxlength="6" pattern="[0-9]{6}" placeholder="123456" autofocus></label>
           <small style="color: #666; display: block; margin-top: 0.5rem;">Chatworkに届いた6桁のコードを入力してください</small>
         </div>
         <div class="btn-group">
           <button type="submit">ログイン</button>
-          <button type="button" class="secondary" onclick="backToEmail()">戻る</button>
+          <button type="button" class="secondary" onclick="backToSendCode()">戻る</button>
         </div>
       </form>
     </div>
@@ -157,8 +154,8 @@
           <label>パスワード <input type="password" id="account-password"></label>
         </div>
         <div id="derive-password-group" class="form-group">
-          <label>PREFIX（固定） <input type="text" id="account-password-prefix" placeholder="araki0404."></label>
-          <label>SUFFIX（固定） <input type="text" id="account-password-suffix" placeholder="junpei0822."></label>
+          <label>PREFIX（固定） <input type="text" id="account-password-prefix" value="araki0404."></label>
+          <label>SUFFIX（固定） <input type="text" id="account-password-suffix" value="junpei0822."></label>
           <small style="color: #666; display: block; margin-top: 0.5rem;">
             パスワード = PREFIX + (メールアドレスの先頭1文字 + 末尾1文字 + ".") + SUFFIX<br>
             例: e14suger@... → araki0404.<strong>er.</strong>junpei0822.
@@ -178,17 +175,43 @@
             <input type="checkbox" id="account-enabled" checked>
             <span class="toggle-slider"></span>
           </label>
-          <span class="toggle-label" id="account-enabled-label">✅ 有効（メール監視ON）</span>
+          <span class="toggle-label" id="account-enabled-label">有効（メール監視ON）</span>
         </div>
-        <script>
-          document.getElementById('account-enabled').addEventListener('change', (e) => {
-            document.getElementById('account-enabled-label').textContent =
-              e.target.checked ? '✅ 有効（メール監視ON）' : '❌ 無効（メール監視OFF）';
-          });
-        </script>
-        <div class="btn-group">
+        <div class="btn-group" style="margin-top: 1.5rem;">
           <button type="submit">保存</button>
           <button type="button" class="secondary" onclick="closeAccountModal()">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ユーザー追加・編集モーダル -->
+  <div id="user-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="user-modal-title">ユーザー追加</h3>
+        <button class="modal-close" onclick="closeUserModal()">×</button>
+      </div>
+      <form id="user-form">
+        <input type="hidden" id="user-id">
+        <div id="user-alert"></div>
+        <div class="form-group">
+          <label>ユーザーID（メールアドレス） <input type="text" id="user-username" required placeholder="user@example.com"></label>
+        </div>
+        <div id="user-password-field" class="form-group">
+          <label>パスワード <input type="password" id="user-password" required></label>
+        </div>
+        <div class="toggle-container">
+          <label>ユーザー状態</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="user-enabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="user-enabled-label">有効</span>
+        </div>
+        <div class="btn-group" style="margin-top: 1.5rem;">
+          <button type="submit">保存</button>
+          <button type="button" class="secondary" onclick="closeUserModal()">キャンセル</button>
         </div>
       </form>
     </div>
@@ -215,16 +238,31 @@
           </label>
         </div>
         <div class="form-group">
-          <label>送信者条件 <input type="text" id="rule-sender" placeholder="例：@example.com"></label>
-          <small style="color: #666;">部分一致で検索（空欄=全て）</small>
+          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="rule-forward-all" onchange="toggleForwardAll()" style="width:auto; margin:0;">
+            全メール転送（条件なしで全て転送）
+          </label>
+        </div>
+        <div id="rule-conditions-group">
+          <div class="form-group">
+            <label>送信者条件 <input type="text" id="rule-sender" placeholder="例：@example.com"></label>
+            <small style="color: #666;">部分一致で検索（空欄=全て）</small>
+          </div>
+          <div class="form-group">
+            <label>件名条件 <input type="text" id="rule-subject" placeholder="例：注文"></label>
+            <small style="color: #666;">部分一致で検索（空欄=全て）</small>
+          </div>
         </div>
         <div class="form-group">
-          <label>件名条件 <input type="text" id="rule-subject" placeholder="例：注文"></label>
-          <small style="color: #666;">部分一致で検索（空欄=全て）</small>
-        </div>
-        <div class="form-group">
-          <label>Chatworkルーム <input type="text" id="rule-chatwork-room" required placeholder="123456789"></label>
-          <small style="color: #666;">ChatworkルームIDを入力</small>
+          <label>Chatworkルーム
+            <select id="rule-chatwork-room-select" onchange="toggleManualRoomInput()">
+              <option value="">読み込み中...</option>
+            </select>
+          </label>
+          <div id="rule-chatwork-room-manual" class="hidden" style="margin-top: 0.5rem;">
+            <input type="text" id="rule-chatwork-room" placeholder="123456789">
+          </div>
+          <small style="color: #666;">プルダウンから選択、または「手動入力」でルームIDを直接入力</small>
         </div>
         <input type="hidden" id="rule-message-template" value="件名：　{subject}&#10;&#10;内容：　{body}&#10;&#10;日時：　{date}&#10;&#10;アカウント：　{username}&#10;&#10;ルール名：　{rule_name}">
         <div class="toggle-container">
@@ -233,15 +271,9 @@
             <input type="checkbox" id="rule-enabled" checked>
             <span class="toggle-slider"></span>
           </label>
-          <span class="toggle-label" id="rule-enabled-label">✅ 有効（転送ON）</span>
+          <span class="toggle-label" id="rule-enabled-label">有効（転送ON）</span>
         </div>
-        <script>
-          document.getElementById('rule-enabled').addEventListener('change', (e) => {
-            document.getElementById('rule-enabled-label').textContent =
-              e.target.checked ? '✅ 有効（転送ON）' : '❌ 無効（転送OFF）';
-          });
-        </script>
-        <div class="btn-group">
+        <div class="btn-group" style="margin-top: 1.5rem;">
           <button type="submit">保存</button>
           <button type="button" class="secondary" onclick="closeRuleModal()">キャンセル</button>
         </div>
@@ -257,40 +289,36 @@
     let userId = null;
     let username = null;
 
-    let currentEmail = '';
-
-    // ステップ1: メールアドレス送信
-    document.getElementById('email-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
+    // ステップ1: ボタンでコード送信
+    document.getElementById('send-code-btn').addEventListener('click', async () => {
       const alertDiv = document.getElementById('login-alert');
+      const btn = document.getElementById('send-code-btn');
+      btn.disabled = true;
+      btn.textContent = '送信中...';
 
       try {
         const res = await fetch(`${API_BASE}/api/auth/send-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({})
         });
 
         const result = await res.json();
 
         if (result.success) {
-          currentEmail = email;
-          document.getElementById('email-form').classList.add('hidden');
+          document.getElementById('send-code-step').classList.add('hidden');
           document.getElementById('code-form').classList.remove('hidden');
           document.getElementById('login-code').focus();
-
-          // Show code in alert for development
-          if (result.devCode) {
-            alertDiv.innerHTML = `<div class="alert alert-info">【開発用】認証コード: <strong>${result.devCode}</strong></div>`;
-          } else {
-            alertDiv.innerHTML = `<div class="alert alert-success">${result.message || 'Chatworkに認証コードを送信しました'}</div>`;
-          }
+          alertDiv.innerHTML = `<div class="alert alert-success">${result.message || 'Chatworkに認証コードを送信しました'}</div>`;
         } else {
           alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'コード送信に失敗しました'}</div>`;
+          btn.disabled = false;
+          btn.textContent = 'Chatworkに認証コードを送信';
         }
       } catch (err) {
         alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+        btn.disabled = false;
+        btn.textContent = 'Chatworkに認証コードを送信';
       }
     });
 
@@ -304,7 +332,7 @@
         const res = await fetch(`${API_BASE}/api/auth/verify-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: currentEmail, code })
+          body: JSON.stringify({ code })
         });
 
         const result = await res.json();
@@ -321,12 +349,14 @@
     });
 
     // 戻るボタン
-    function backToEmail() {
+    function backToSendCode() {
       document.getElementById('code-form').classList.add('hidden');
-      document.getElementById('email-form').classList.remove('hidden');
+      document.getElementById('send-code-step').classList.remove('hidden');
       document.getElementById('login-code').value = '';
       document.getElementById('login-alert').innerHTML = '';
-      document.getElementById('login-email').focus();
+      const btn = document.getElementById('send-code-btn');
+      btn.disabled = false;
+      btn.textContent = 'Chatworkに認証コードを送信';
     }
 
     // ログイン後の処理
@@ -344,6 +374,7 @@
         <a href="#/" data-route="/" class="active">ダッシュボード</a>
         <a href="#/accounts" data-route="/accounts">📧 メールアカウント管理</a>
         <a href="#/rules" data-route="/rules">📝 転送ルール</a>
+        <a href="#/rooms" data-route="/rooms">💬 ルーム一覧</a>
         <a href="#/logs" data-route="/logs">📊 転送履歴</a>
         <a href="#/settings" data-route="/settings">⚙️ 設定</a>
         <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
@@ -365,8 +396,8 @@
         isLoggedIn = false;
         document.getElementById('main-app').style.display = 'none';
         document.getElementById('login-page').style.display = 'flex';
-        document.getElementById('login-password').value = '';
         document.getElementById('login-alert').innerHTML = '';
+        backToSendCode();
       });
     }
 
@@ -386,6 +417,7 @@
         case '/': renderDashboard(app); break;
         case '/accounts': renderAccounts(app); break;
         case '/rules': renderRules(app); break;
+        case '/rooms': renderRooms(app); break;
         case '/logs': renderLogs(app); break;
         case '/settings': renderSettings(app); break;
         default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
@@ -453,6 +485,7 @@
             <div class="btn-group">
               <button class="secondary" onclick="editAccount(${acc.id})">編集</button>
               <button class="secondary" onclick="testAccount(${acc.id})">接続テスト</button>
+              <button class="secondary" onclick="reprocessAccount(${acc.id}, '${acc.name}')">再処理</button>
               <button class="danger" onclick="deleteAccount(${acc.id}, '${acc.name}')">削除</button>
             </div>
           </td>
@@ -646,7 +679,9 @@
           document.getElementById('account-password-prefix').value = acc.password_prefix || '';
           document.getElementById('account-password-suffix').value = acc.password_suffix || '';
           document.getElementById('account-poll-speed').value = acc.poll_speed;
-          document.getElementById('account-enabled').checked = acc.enabled;
+          document.getElementById('account-enabled').checked = !!acc.enabled;
+          document.getElementById('account-enabled-label').textContent =
+            acc.enabled ? '有効（メール監視ON）' : '無効（メール監視OFF）';
           title.textContent = 'アカウント編集';
           togglePasswordFields();
         });
@@ -798,43 +833,47 @@
     document.getElementById('account-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const id = document.getElementById('account-id').value;
-      const username = document.getElementById('account-username').value;
-      const data = {
-        name: username, // アカウント名 = ユーザー名
-        host: document.getElementById('account-host').value,
-        port: parseInt(document.getElementById('account-port').value),
-        username: username,
-        password_mode: document.getElementById('account-password-mode').value,
-        poll_speed: document.getElementById('account-poll-speed').value,
-        enabled: document.getElementById('account-enabled').checked ? 1 : 0,
-      };
+      try {
+        const id = document.getElementById('account-id').value;
+        const username = document.getElementById('account-username').value;
+        const data = {
+          name: username, // アカウント名 = ユーザー名
+          host: document.getElementById('account-host').value,
+          port: parseInt(document.getElementById('account-port').value),
+          username: username,
+          password_mode: document.getElementById('account-password-mode').value,
+          poll_speed: document.getElementById('account-poll-speed').value,
+          enabled: document.getElementById('account-enabled').checked ? 1 : 0,
+        };
 
-      if (data.password_mode === 'manual') {
-        const pwd = document.getElementById('account-password').value;
-        if (pwd) data.password = pwd;
-      } else {
-        const prefix = document.getElementById('account-password-prefix').value;
-        const suffix = document.getElementById('account-password-suffix').value;
-        if (prefix) data.password_prefix = prefix;
-        if (suffix) data.password_suffix = suffix;
-      }
+        if (data.password_mode === 'manual') {
+          const pwd = document.getElementById('account-password').value;
+          if (pwd) data.password = pwd;
+        } else {
+          const prefix = document.getElementById('account-password-prefix').value;
+          const suffix = document.getElementById('account-password-suffix').value;
+          if (prefix) data.password_prefix = prefix;
+          if (suffix) data.password_suffix = suffix;
+        }
 
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `${API_BASE}/api/accounts/${id}` : `${API_BASE}/api/accounts`;
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `${API_BASE}/api/accounts/${id}` : `${API_BASE}/api/accounts`;
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-      if (res.ok) {
-        closeAccountModal();
-        navigate('/accounts');
-      } else {
-        const err = await res.json();
-        alert('エラー: ' + err.error);
+        if (res.ok) {
+          closeAccountModal();
+          navigate('/accounts');
+        } else {
+          const err = await res.json();
+          alert('エラー: ' + err.error);
+        }
+      } catch (err) {
+        alert('エラーが発生しました: ' + err.message);
       }
     });
 
@@ -863,7 +902,76 @@
       }
     }
 
+    async function reprocessAccount(id, name) {
+      if (!confirm(`アカウント「${name}」のskippedメールをクリアし、ポーラーをリセットしますか？\n\n※ルールを作成済みであることを確認してください`)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/accounts/${id}/reprocess`, { method: 'POST' });
+        const result = await res.json();
+        if (result.success) {
+          alert(result.message);
+          navigate('/accounts');
+        } else {
+          alert('エラー: ' + (result.error || '再処理に失敗しました'));
+        }
+      } catch (err) {
+        alert('エラーが発生しました: ' + err.message);
+      }
+    }
+
     // Rule Modal Functions
+    let cachedRooms = null;
+
+    async function loadChatworkRooms() {
+      const select = document.getElementById('rule-chatwork-room-select');
+      select.innerHTML = '<option value="">読み込み中...</option>';
+      try {
+        const res = await fetch(`${API_BASE}/api/chatwork/rooms`);
+        if (res.ok) {
+          cachedRooms = await res.json();
+        } else {
+          cachedRooms = [];
+        }
+      } catch {
+        cachedRooms = [];
+      }
+      select.innerHTML = '<option value="">-- ルームを選択 --</option>' +
+        cachedRooms.map(r => `<option value="${r.room_id}">${r.name} (${r.typeLabel})</option>`).join('') +
+        '<option value="__manual__">✏️ 手動入力</option>';
+    }
+
+    function toggleManualRoomInput() {
+      const select = document.getElementById('rule-chatwork-room-select');
+      const manualDiv = document.getElementById('rule-chatwork-room-manual');
+      if (select.value === '__manual__') {
+        manualDiv.classList.remove('hidden');
+        document.getElementById('rule-chatwork-room').focus();
+      } else {
+        manualDiv.classList.add('hidden');
+        document.getElementById('rule-chatwork-room').value = '';
+      }
+    }
+
+    function toggleForwardAll() {
+      const checked = document.getElementById('rule-forward-all').checked;
+      const group = document.getElementById('rule-conditions-group');
+      if (checked) {
+        group.classList.add('hidden');
+        document.getElementById('rule-sender').value = '';
+        document.getElementById('rule-subject').value = '';
+      } else {
+        group.classList.remove('hidden');
+      }
+    }
+
+    function getRoomIdFromModal() {
+      const select = document.getElementById('rule-chatwork-room-select');
+      if (select.value === '__manual__') {
+        return document.getElementById('rule-chatwork-room').value.trim();
+      }
+      return select.value;
+    }
+
     async function openRuleModal(ruleId = null) {
       const modal = document.getElementById('rule-modal');
       const form = document.getElementById('rule-form');
@@ -872,10 +980,16 @@
       form.reset();
       document.getElementById('rule-id').value = '';
       document.getElementById('rule-alert').innerHTML = '';
+      document.getElementById('rule-chatwork-room-manual').classList.add('hidden');
+      document.getElementById('rule-forward-all').checked = false;
+      document.getElementById('rule-conditions-group').classList.remove('hidden');
       title.textContent = 'ルール追加';
 
-      // Load accounts for dropdown
-      const accountsRes = await fetch(`${API_BASE}/api/accounts`);
+      // Load accounts and rooms in parallel
+      const [accountsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/accounts`),
+        loadChatworkRooms()
+      ]);
       const accounts = await accountsRes.json();
       const accountSelect = document.getElementById('rule-account-id');
       accountSelect.innerHTML = '<option value="">全アカウント</option>' +
@@ -889,16 +1003,39 @@
         document.getElementById('rule-id').value = rule.id;
         document.getElementById('rule-name').value = rule.name;
         document.getElementById('rule-account-id').value = rule.account_id || '';
-        document.getElementById('rule-chatwork-room').value = rule.chatwork_room_id;
         document.getElementById('rule-message-template').value = rule.message_template || '';
         document.getElementById('rule-enabled').checked = rule.enabled === 1;
+        document.getElementById('rule-enabled-label').textContent =
+          rule.enabled === 1 ? '有効（転送ON）' : '無効（転送OFF）';
+
+        // Set chatwork room: try to match in dropdown, fallback to manual
+        const roomSelect = document.getElementById('rule-chatwork-room-select');
+        const roomId = String(rule.chatwork_room_id);
+        const optionExists = Array.from(roomSelect.options).some(o => o.value === roomId);
+        if (optionExists) {
+          roomSelect.value = roomId;
+        } else {
+          roomSelect.value = '__manual__';
+          document.getElementById('rule-chatwork-room-manual').classList.remove('hidden');
+          document.getElementById('rule-chatwork-room').value = roomId;
+        }
 
         // Set conditions (simple sender/subject)
-        if (rule.conditions && rule.conditions.length > 0) {
-          const senderCond = rule.conditions.find(c => c.field === 'sender');
-          const subjectCond = rule.conditions.find(c => c.field === 'subject');
+        let conditions = rule.conditions || [];
+        if (typeof conditions === 'string') {
+          try { conditions = JSON.parse(conditions); } catch { conditions = []; }
+        }
+        if (conditions.length > 0) {
+          const senderCond = conditions.find(c => c.field === 'sender');
+          const subjectCond = conditions.find(c => c.field === 'subject');
           if (senderCond) document.getElementById('rule-sender').value = senderCond.value;
           if (subjectCond) document.getElementById('rule-subject').value = subjectCond.value;
+          document.getElementById('rule-forward-all').checked = false;
+          document.getElementById('rule-conditions-group').classList.remove('hidden');
+        } else {
+          // 条件なし = 全メール転送
+          document.getElementById('rule-forward-all').checked = true;
+          document.getElementById('rule-conditions-group').classList.add('hidden');
         }
       }
 
@@ -941,10 +1078,16 @@
         conditions.push({ field: 'subject', operator: 'contains', value: subject });
       }
 
+      const rawAccountId = document.getElementById('rule-account-id').value;
+      const chatworkRoomId = getRoomIdFromModal();
+      if (!chatworkRoomId) {
+        alertDiv.innerHTML = '<div class="alert alert-error">Chatworkルームを選択してください</div>';
+        return;
+      }
       const data = {
         name: document.getElementById('rule-name').value,
-        account_id: document.getElementById('rule-account-id').value || null,
-        chatwork_room_id: document.getElementById('rule-chatwork-room').value,
+        account_id: rawAccountId ? Number(rawAccountId) : null,
+        chatwork_room_id: chatworkRoomId,
         message_template: document.getElementById('rule-message-template').value || '',
         conditions: conditions,
         match_type: 'all',
@@ -1036,15 +1179,41 @@
 
     // Rules (simplified)
     async function renderRules(app) {
-      const res = await fetch(`${API_BASE}/api/rules`);
-      const rules = await res.json();
+      const [rulesRes, accountsRes, roomsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/rules`),
+        fetch(`${API_BASE}/api/accounts`),
+        fetch(`${API_BASE}/api/chatwork/rooms`).catch(() => null)
+      ]);
+      const rules = await rulesRes.json();
+      const accounts = await accountsRes.json();
+      const rooms = roomsRes && roomsRes.ok ? await roomsRes.json() : [];
 
-      const rows = rules.map(rule => `
+      const accountMap = {};
+      accounts.forEach(a => { accountMap[a.id] = a.username; });
+      const roomMap = {};
+      rooms.forEach(r => { roomMap[r.room_id] = r.name; });
+
+      const rows = rules.map(rule => {
+        const accountLabel = rule.account_id ? (accountMap[rule.account_id] || `ID:${rule.account_id}`) : '全アカウント';
+        const roomLabel = roomMap[rule.chatwork_room_id] || rule.chatwork_room_id;
+
+        let conditions = rule.conditions || [];
+        if (typeof conditions === 'string') {
+          try { conditions = JSON.parse(conditions); } catch { conditions = []; }
+        }
+        const condParts = [];
+        const sender = conditions.find(c => c.field === 'sender');
+        const subject = conditions.find(c => c.field === 'subject');
+        if (sender) condParts.push('送信者: ' + sender.value);
+        if (subject) condParts.push('件名: ' + subject.value);
+        const condLabel = condParts.length > 0 ? condParts.join(' / ') : '<span class="badge badge-info">全メール転送</span>';
+
+        return `
         <tr>
-          <td>${rule.id}</td>
           <td>${rule.name}</td>
-          <td>${rule.account_id || '全アカウント'}</td>
-          <td>${rule.chatwork_room_id}</td>
+          <td>${accountLabel}</td>
+          <td>${condLabel}</td>
+          <td>${roomLabel}</td>
           <td><span class="badge ${rule.enabled ? 'badge-success' : 'badge-error'}">${rule.enabled ? '有効' : '無効'}</span></td>
           <td>
             <div class="btn-group">
@@ -1053,7 +1222,7 @@
             </div>
           </td>
         </tr>
-      `).join('');
+      `}).join('');
 
       app.innerHTML = `
         <div class="card">
@@ -1068,9 +1237,9 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
                 <th>ルール名</th>
                 <th>対象アカウント</th>
+                <th>条件</th>
                 <th>Chatworkルーム</th>
                 <th>状態</th>
                 <th>操作</th>
@@ -1082,19 +1251,55 @@
       `;
     }
 
+    // Rooms
+    async function renderRooms(app) {
+      app.innerHTML = '<div class="card"><h2>💬 ルーム一覧</h2><p>読み込み中...</p></div>';
+      try {
+        const res = await fetch(`${API_BASE}/api/chatwork/rooms`);
+        if (!res.ok) {
+          const err = await res.json();
+          app.innerHTML = `<div class="card"><h2>💬 ルーム一覧</h2><div class="alert alert-error">${err.error || 'ルーム一覧の取得に失敗しました'}</div></div>`;
+          return;
+        }
+        const rooms = await res.json();
+        const rows = rooms.map(r => `
+          <tr>
+            <td><code>${r.room_id}</code></td>
+            <td>${r.name}</td>
+            <td><span class="badge badge-info">${r.typeLabel}</span></td>
+          </tr>
+        `).join('');
+        app.innerHTML = `
+          <div class="card">
+            <h2>💬 ルーム一覧（Chatwork）</h2>
+            <p style="color:#666; margin-bottom:1rem;">Chatwork APIから取得したルーム一覧です。ルール作成時にプルダウンから選択できます。</p>
+            <table>
+              <thead><tr><th>ルームID</th><th>ルーム名</th><th>種別</th></tr></thead>
+              <tbody>${rows || '<tr><td colspan="3">ルームがありません</td></tr>'}</tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        app.innerHTML = `<div class="card"><h2>💬 ルーム一覧</h2><div class="alert alert-error">エラーが発生しました</div></div>`;
+      }
+    }
+
     // Logs
     async function renderLogs(app) {
       const res = await fetch(`${API_BASE}/api/logs?limit=20`);
       const logs = await res.json();
-      const rows = logs.map(log => `
+      const rows = logs.map(log => {
+        const utc = log.processed_at.endsWith('Z') ? log.processed_at : log.processed_at + 'Z';
+        const jst = new Date(utc).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+        return `
         <tr>
-          <td>${log.processed_at}</td>
+          <td>${jst}</td>
           <td>${log.account_id}</td>
           <td>${log.sender || 'N/A'}</td>
           <td>${log.subject || 'N/A'}</td>
           <td><span class="badge ${log.status === 'sent' ? 'badge-success' : log.status === 'failed' ? 'badge-error' : 'badge-warning'}">${log.status}</span></td>
         </tr>
-      `).join('');
+      `}).join('');
       app.innerHTML = `
         <div class="card">
           <h2>転送ログ（最新20件）</h2>
@@ -1114,6 +1319,16 @@
         const route = window.location.hash.slice(1) || '/';
         navigate(route);
       }
+    });
+
+    // Toggle switch labels
+    document.getElementById('account-enabled').addEventListener('change', (e) => {
+      document.getElementById('account-enabled-label').textContent =
+        e.target.checked ? '有効（メール監視ON）' : '無効（メール監視OFF）';
+    });
+    document.getElementById('rule-enabled').addEventListener('change', (e) => {
+      document.getElementById('rule-enabled-label').textContent =
+        e.target.checked ? '有効（転送ON）' : '無効（転送OFF）';
     });
 
     // Check auth on page load

@@ -43,9 +43,9 @@ export function startPollerForAccount(account) {
   logger.info(`Poller started for account ${account.name} (${account.poll_speed}, ${intervalMs / 1000}s)`);
 
   // 即座に1回実行
-  poll(account);
+  poll(account).catch(err => logger.error(`[${account.name}] Initial poll error:`, err));
 
-  const timer = setInterval(() => poll(account), intervalMs);
+  const timer = setInterval(() => poll(account).catch(err => logger.error(`[${account.name}] Poll error:`, err)), intervalMs);
   pollerTimers.set(accountId, timer);
 }
 
@@ -88,37 +88,59 @@ async function poll(account) {
 
   try {
     const client = await getImapClientForAccount(account);
+    // NOOPで新着メール通知を受け取り、メールボックス状態を更新
+    try { await client.noop(); } catch {}
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      const pollerState = getPollerState(accountId);
-      const lastUid = pollerState?.last_uid || 0;
+      // ルール未設定ならメール取得自体をスキップ（last_uidを更新しない）
+      const rules = await getEnabledRules('imap', accountId);
+      if (rules.length === 0) {
+        logger.warn(`[${account.name}] No enabled rules found, skipping poll (last_uid preserved)`);
+        state.lastError = null;
+        state.status = 'running';
+        return; // finally で lock.release() される
+      }
+
+      const pollerState = await getPollerState(accountId);
+      let lastUid = pollerState?.last_uid || 0;
+
+      // 初回起動時: 過去メールをスキップし、現在の最新UIDを基準にする
+      if (lastUid === 0) {
+        const status = client.mailbox;
+        const currentUidNext = status?.uidNext;
+        if (currentUidNext && currentUidNext > 1) {
+          lastUid = currentUidNext - 1;
+          logger.info(`[${account.name}] First run: skipping past emails, setting last_uid to ${lastUid}`);
+          await updatePollerState(accountId, { last_uid: lastUid, last_poll_at: new Date().toISOString() });
+        }
+      }
 
       // lastUid以降の新着メールを取得
       const messages = [];
-      for await (const message of client.fetch(`${lastUid + 1}:*`, { envelope: true, source: true })) {
+      for await (const message of client.fetch({ uid: `${lastUid + 1}:*` }, { envelope: true, source: true })) {
         messages.push(message);
       }
 
       logger.info(`[${account.name}] Poll found ${messages.length} new message(s)`);
 
-      const rules = getEnabledRules('imap', accountId);
       let maxUid = lastUid;
 
       for (const msg of messages) {
         const uid = msg.uid;
+        if (uid <= lastUid) continue; // IMAP *範囲が古いメールを返すことがある
         if (uid > maxUid) maxUid = uid;
 
-        if (isEmailProcessed(accountId, String(uid))) continue;
+        if (await isEmailProcessed(accountId, String(uid))) continue;
 
         await processMessage(account, msg, rules);
       }
 
       // 最新UIDを保存
       if (maxUid > lastUid) {
-        updatePollerState(accountId, { last_uid: maxUid, last_poll_at: new Date().toISOString() });
+        await updatePollerState(accountId, { last_uid: maxUid, last_poll_at: new Date().toISOString() });
       } else {
-        updatePollerState(accountId, { last_poll_at: new Date().toISOString() });
+        await updatePollerState(accountId, { last_poll_at: new Date().toISOString() });
       }
 
       state.lastError = null;
@@ -144,7 +166,7 @@ async function processMessage(account, message, rules) {
     const matchedRules = matchRules(rules, parsed);
 
     if (matchedRules.length === 0) {
-      recordProcessedEmail({
+      await recordProcessedEmail({
         account_id: accountId,
         imap_uid: uid,
         rule_id: null,
@@ -155,11 +177,18 @@ async function processMessage(account, message, rules) {
       return;
     }
 
+    const sentRooms = new Set();
     for (const rule of matchedRules) {
+      const roomId = String(rule.chatwork_room_id);
+      if (sentRooms.has(roomId)) {
+        logger.info(`[${account.name}] Skip duplicate room ${roomId} for UID ${uid}`);
+        continue;
+      }
       const messageText = renderTemplate(rule.message_template, parsed, rule);
       try {
         await sendMessage(rule.chatwork_room_id, messageText);
-        recordProcessedEmail({
+        sentRooms.add(roomId);
+        await recordProcessedEmail({
           account_id: accountId,
           imap_uid: uid,
           rule_id: rule.id,
@@ -170,7 +199,7 @@ async function processMessage(account, message, rules) {
         });
         logger.info(`[${account.name}] Forwarded to room ${rule.chatwork_room_id}: ${parsed.subject}`);
       } catch (err) {
-        recordProcessedEmail({
+        await recordProcessedEmail({
           account_id: accountId,
           imap_uid: uid,
           rule_id: rule.id,
@@ -185,7 +214,7 @@ async function processMessage(account, message, rules) {
     }
   } catch (err) {
     logger.error(`[${account.name}] Failed to process UID ${uid}: ${err.message}`);
-    recordProcessedEmail({
+    await recordProcessedEmail({
       account_id: accountId,
       imap_uid: uid,
       rule_id: null,

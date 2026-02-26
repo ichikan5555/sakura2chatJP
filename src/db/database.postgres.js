@@ -149,6 +149,10 @@ export async function createProcessedEmail(data) { return null; }
 export async function isEmailProcessed(accountId, uid) { return false; }
 export async function recordProcessedEmail(data) { return null; }
 
+// ==================== Reprocess (Stub) ====================
+export async function clearSkippedEmails(accountId) { return 0; }
+export async function resetPollerUid(accountId) { }
+
 // ==================== Poller (Stub) ====================
 export async function getPollerState(accountId) { return null; }
 export async function updatePollerState(accountId, data) { }

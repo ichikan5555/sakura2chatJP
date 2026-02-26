@@ -33,63 +33,81 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/rules - ルール作成（user_id自動設定）
-router.post('/', async (req, res) => {
-  const { name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority } = req.body;
-  if (!name || !chatwork_room_id) return res.status(400).json({ error: 'name and chatwork_room_id are required' });
+router.post('/', async (req, res, next) => {
+  try {
+    const { name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority } = req.body;
+    if (!name || !chatwork_room_id) return res.status(400).json({ error: 'name and chatwork_room_id are required' });
 
-  // user_id設定：ユーザーは自分のID、管理者は指定可能（未指定ならnull）
-  let userId = null;
-  if (req.auth.isUser) {
-    userId = req.auth.userId;
-  } else if (req.auth.isAdmin && req.body.user_id !== undefined) {
-    userId = req.body.user_id;
+    // user_id設定：ユーザーは自分のID、管理者は指定可能（未指定ならnull）
+    let userId = null;
+    if (req.auth.isUser) {
+      userId = req.auth.userId;
+    } else if (req.auth.isAdmin && req.body.user_id !== undefined) {
+      userId = req.body.user_id;
+    }
+
+    res.status(201).json(await createRule({
+      user_id: userId,
+      name,
+      enabled,
+      source,
+      account_id: account_id ? Number(account_id) : null,
+      match_type,
+      conditions,
+      chatwork_room_id: String(chatwork_room_id).trim(),
+      message_template,
+      priority
+    }));
+  } catch (err) {
+    next(err);
   }
-
-  res.status(201).json(await createRule({
-    user_id: userId,
-    name,
-    enabled,
-    source,
-    account_id,
-    match_type,
-    conditions,
-    chatwork_room_id,
-    message_template,
-    priority
-  }));
 });
 
 // PUT /api/rules/:id - ルール更新（権限チェック）
-router.put('/:id', async (req, res) => {
-  const rule = await getRuleById(Number(req.params.id));
-  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+router.put('/:id', async (req, res, next) => {
+  try {
+    const rule = await getRuleById(Number(req.params.id));
+    if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
-  // 権限チェック：ユーザーは自分のルールのみ
-  if (req.auth.isUser && rule.user_id !== req.auth.userId) {
-    return res.status(403).json({ error: 'アクセス権限がありません' });
+    // 権限チェック：ユーザーは自分のルールのみ
+    if (req.auth.isUser && rule.user_id !== req.auth.userId) {
+      return res.status(403).json({ error: 'アクセス権限がありません' });
+    }
+
+    // ユーザーはuser_idを変更できない
+    const updates = { ...req.body };
+    if (req.auth.isUser) {
+      delete updates.user_id;
+    }
+    if (updates.account_id !== undefined) {
+      updates.account_id = updates.account_id ? Number(updates.account_id) : null;
+    }
+    if (updates.chatwork_room_id !== undefined) {
+      updates.chatwork_room_id = String(updates.chatwork_room_id).trim();
+    }
+
+    res.json(await updateRule(Number(req.params.id), updates));
+  } catch (err) {
+    next(err);
   }
-
-  // ユーザーはuser_idを変更できない
-  const updates = { ...req.body };
-  if (req.auth.isUser) {
-    delete updates.user_id;
-  }
-
-  res.json(await updateRule(Number(req.params.id), updates));
 });
 
 // DELETE /api/rules/:id - ルール削除（権限チェック）
-router.delete('/:id', async (req, res) => {
-  const rule = await getRuleById(Number(req.params.id));
-  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const rule = await getRuleById(Number(req.params.id));
+    if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
-  // 権限チェック：ユーザーは自分のルールのみ
-  if (req.auth.isUser && rule.user_id !== req.auth.userId) {
-    return res.status(403).json({ error: 'アクセス権限がありません' });
+    // 権限チェック：ユーザーは自分のルールのみ
+    if (req.auth.isUser && rule.user_id !== req.auth.userId) {
+      return res.status(403).json({ error: 'アクセス権限がありません' });
+    }
+
+    await deleteRule(Number(req.params.id));
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
   }
-
-  await deleteRule(Number(req.params.id));
-  res.json({ success: true });
 });
 
 export default router;
