@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>さくらメール → Chatwork 転送</title>
+  <title>メール2チャットワークJP</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
@@ -84,7 +84,7 @@
   <!-- ログインページ -->
   <div id="login-page" class="hidden">
     <div class="login-card">
-      <h1>さくらメール → Chatwork</h1>
+      <h1>メール2チャットワークJP</h1>
       <p>Chatwork認証でログイン</p>
 
       <div id="login-alert"></div>
@@ -111,7 +111,7 @@
   <!-- メインアプリ -->
   <div id="main-app" class="hidden">
     <header>
-      <h1>📧 さくらメール → Chatwork 転送</h1>
+      <h1>📧 メール2チャットワークJP</h1>
       <nav id="main-nav">
         <a href="#/" data-route="/" class="active">ダッシュボード</a>
         <a href="#/accounts" data-route="/accounts">アカウント管理</a>
@@ -133,6 +133,38 @@
       </div>
       <form id="account-form">
         <input type="hidden" id="account-id">
+
+        <div style="margin-bottom: 1rem;">
+          <button type="button" class="secondary" onclick="toggleGmailGuide()" style="width:100%; text-align:left; padding:0.75rem 1rem; font-size:0.95rem;">
+            📖 Gmailを追加する場合はこちら（設定ガイド）
+          </button>
+          <div id="gmail-guide" class="hidden" style="background:#f0f7ff; border:1px solid #b3d4fc; border-radius:6px; padding:1.25rem; margin-top:0.5rem; font-size:0.9rem; line-height:1.7;">
+            <strong>Gmail設定ガイド</strong>
+            <hr style="margin:0.5rem 0; border-color:#b3d4fc;">
+            <p><strong>Step 1:</strong> Gmailの設定でIMAPを有効化</p>
+            <ol style="margin:0.25rem 0 0.75rem 1.25rem;">
+              <li>Gmailにログイン → 右上の歯車 → 「すべての設定を表示」</li>
+              <li>「メール転送とPOP/IMAP」タブ → IMAPアクセスを「有効」にして保存</li>
+            </ol>
+            <p><strong>Step 2:</strong> Googleアプリパスワードを生成</p>
+            <ol style="margin:0.25rem 0 0.75rem 1.25rem;">
+              <li><a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#0066cc;">こちらをクリック</a>してGoogleアカウントにログイン</li>
+              <li>2段階認証が未設定の場合は先に有効化が必要です</li>
+              <li>アプリ名に「さくら転送」と入力 → 「作成」</li>
+              <li>表示された<strong>16文字のパスワード</strong>をコピー（通常のGoogleパスワードとは別物です）</li>
+            </ol>
+            <p><strong>Step 3:</strong> 下のフォームに入力</p>
+            <ul style="margin:0.25rem 0 0.5rem 1.25rem;">
+              <li>ユーザー名: <strong>xxx@gmail.com</strong></li>
+              <li>IMAPサーバー: <strong>imap.gmail.com</strong></li>
+              <li>ポート: <strong>993</strong></li>
+              <li>パスワードモード: <strong>手動入力</strong>に変更</li>
+              <li>パスワード: Step 2でコピーした<strong>アプリパスワード</strong></li>
+            </ul>
+            <button type="button" onclick="prefillGmail()" style="background:#4285f4; color:white; border:none; padding:0.5rem 1rem; border-radius:4px; cursor:pointer; font-size:0.9rem;">Gmail用に自動入力する</button>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>ユーザー名（メールアドレス） <input type="email" id="account-username" required placeholder="user@example.com"></label>
         </div>
@@ -377,6 +409,7 @@
         <a href="#/rooms" data-route="/rooms">💬 ルーム一覧</a>
         <a href="#/logs" data-route="/logs">📊 転送履歴</a>
         <a href="#/settings" data-route="/settings">⚙️ 設定</a>
+        <a href="#/help" data-route="/help">📖 使い方</a>
         <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
       `;
 
@@ -420,6 +453,7 @@
         case '/rooms': renderRooms(app); break;
         case '/logs': renderLogs(app); break;
         case '/settings': renderSettings(app); break;
+        case '/help': renderHelp(app); break;
         default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
       }
     }
@@ -476,8 +510,6 @@
 
       const rows = accounts.map(acc => `
         <tr>
-          <td>${acc.id}</td>
-          <td>${acc.name}</td>
           <td>${acc.username}</td>
           <td><span class="badge badge-info">${acc.poll_speed === 'high' ? '⚡ 高速' : acc.poll_speed === 'slow' ? '🐢 ゆっくり' : '🔄 通常'}</span></td>
           <td><span class="badge ${acc.enabled ? 'badge-success' : 'badge-warning'}">${acc.enabled ? '有効' : '無効'}</span></td>
@@ -500,9 +532,9 @@
           </div>
           <table>
             <thead>
-              <tr><th>ID</th><th>名前</th><th>ユーザー名</th><th>監視速度</th><th>状態</th><th>操作</th></tr>
+              <tr><th>メールアドレス</th><th>監視速度</th><th>状態</th><th>操作</th></tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="6">アカウントがありません</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="4">アカウントがありません</td></tr>'}</tbody>
           </table>
         </div>
       `;
@@ -666,6 +698,7 @@
 
       form.reset();
       document.getElementById('account-id').value = '';
+      document.getElementById('gmail-guide').classList.add('hidden');
       title.textContent = 'アカウント追加';
       togglePasswordFields();
 
@@ -692,6 +725,19 @@
 
     function closeAccountModal() {
       document.getElementById('account-modal').classList.remove('show');
+    }
+
+    function toggleGmailGuide() {
+      document.getElementById('gmail-guide').classList.toggle('hidden');
+    }
+
+    function prefillGmail() {
+      document.getElementById('account-host').value = 'imap.gmail.com';
+      document.getElementById('account-port').value = '993';
+      document.getElementById('account-password-mode').value = 'manual';
+      togglePasswordFields();
+      document.getElementById('account-username').focus();
+      document.getElementById('gmail-guide').classList.add('hidden');
     }
 
     function togglePasswordFields() {
@@ -1247,6 +1293,135 @@
             </thead>
             <tbody>${rows || '<tr><td colspan="6">ルールがありません</td></tr>'}</tbody>
           </table>
+        </div>
+      `;
+    }
+
+    // Help
+    function renderHelp(app) {
+      app.innerHTML = `
+        <div class="card">
+          <h2>📖 使い方ガイド</h2>
+          <p style="color:#666; margin-bottom:1.5rem;">メール2チャットワークJPの使い方マニュアルです。</p>
+
+          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">1. ログイン方法</summary>
+            <div style="margin-top:1rem; line-height:1.8;">
+              <ol>
+                <li>「Chatworkに認証コードを送信」ボタンを押す</li>
+                <li>Chatworkのダイレクトメッセージに<strong>6桁の認証コード</strong>が届く</li>
+                <li>コードを入力して「ログイン」</li>
+              </ol>
+              <p style="color:#666; margin-top:0.5rem;">※ コードの有効期限は5分間です</p>
+            </div>
+          </details>
+
+          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">2. メールアカウントの追加</summary>
+            <div style="margin-top:1rem; line-height:1.8;">
+              <h4 style="margin-bottom:0.5rem;">さくらメールの場合</h4>
+              <ol>
+                <li>「メールアカウント管理」→「＋ アカウント追加」</li>
+                <li>メールアドレスを入力</li>
+                <li>IMAPサーバー: <code>monoshare.sakura.ne.jp</code>（初期値のまま）</li>
+                <li>パスワードモード: 「自動（社内ルール）」のままでOK</li>
+                <li>「保存」→「接続テスト」で確認</li>
+              </ol>
+              <h4 style="margin:1rem 0 0.5rem;">Gmailの場合</h4>
+              <ol>
+                <li>Gmailの設定でIMAPを有効化<br>
+                    <span style="color:#666;">（歯車 → すべての設定 → メール転送とPOP/IMAP → IMAP有効）</span></li>
+                <li><a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#0066cc;">Googleアプリパスワード</a>を生成<br>
+                    <span style="color:#666;">（2段階認証が必要。アプリ名に「さくら転送」→ 作成 → 16文字のパスワードをコピー）</span></li>
+                <li>「＋ アカウント追加」→「📖 Gmailを追加する場合はこちら」を開く</li>
+                <li>「Gmail用に自動入力する」ボタンを押す</li>
+                <li>Gmailアドレスと、コピーしたアプリパスワードを入力</li>
+                <li>「保存」→「接続テスト」で確認</li>
+              </ol>
+            </div>
+          </details>
+
+          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">3. 転送ルールの作成</summary>
+            <div style="margin-top:1rem; line-height:1.8;">
+              <ol>
+                <li>「転送ルール」→「➕ ルール追加」</li>
+                <li><strong>ルール名</strong>: 分かりやすい名前（例：「注文通知」）</li>
+                <li><strong>対象アカウント</strong>: どのメールアドレスに届いたメールを転送するか</li>
+                <li><strong>全メール転送</strong>: チェックすると全てのメールを転送</li>
+                <li>チェックしない場合は条件を指定:
+                  <ul>
+                    <li><strong>送信者条件</strong>: メール送信者のアドレス（部分一致）</li>
+                    <li><strong>件名条件</strong>: メール件名のキーワード（部分一致）</li>
+                  </ul>
+                </li>
+                <li><strong>Chatworkルーム</strong>: プルダウンから転送先のルームを選択</li>
+                <li>「保存」</li>
+              </ol>
+            </div>
+          </details>
+
+          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;" open>
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">4. Excelで一括ルール登録</summary>
+            <div style="margin-top:1rem; line-height:1.8;">
+              <p>大量のルールを一度に登録したい場合、Excelファイルでインポートできます。</p>
+              <h4 style="margin:1rem 0 0.5rem;">Excelのフォーマット（5列）</h4>
+              <table style="font-size:0.9rem; margin-bottom:1rem;">
+                <thead>
+                  <tr>
+                    <th>A列: ルール名</th>
+                    <th>B列: 受信メールアドレス</th>
+                    <th>C列: 相手メールアドレス</th>
+                    <th>D列: 受信件名（部分一致）</th>
+                    <th>E列: チャットワークルームID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>注文通知</td>
+                    <td>shop@example.com</td>
+                    <td>@amazon.co.jp</td>
+                    <td>注文</td>
+                    <td>123456789</td>
+                  </tr>
+                  <tr>
+                    <td>全メール転送</td>
+                    <td>info@example.com</td>
+                    <td><span style="color:#999;">（空欄）</span></td>
+                    <td><span style="color:#999;">（空欄）</span></td>
+                    <td>987654321</td>
+                  </tr>
+                </tbody>
+              </table>
+              <h4 style="margin:0.5rem 0;">各列の説明</h4>
+              <ul>
+                <li><strong>ルール名</strong>（必須）: ルールの名前</li>
+                <li><strong>受信メールアドレス</strong>: 監視対象のメールアドレス。空欄または「全アカウント」で全て対象</li>
+                <li><strong>相手メールアドレス</strong>: 送信者の絞り込み（部分一致）。空欄＝全送信者</li>
+                <li><strong>受信件名（部分一致）</strong>: 件名の絞り込み。空欄＝全件名</li>
+                <li><strong>チャットワークルームID</strong>（必須）: 転送先のルームID（「ルーム一覧」画面で確認できます）</li>
+              </ul>
+              <h4 style="margin:1rem 0 0.5rem;">手順</h4>
+              <ol>
+                <li>上のフォーマットでExcelファイル（.xlsx）を作成</li>
+                <li>「転送ルール」→「📥 Excelインポート」ボタン</li>
+                <li>ファイルを選択 → 自動でルールが登録されます</li>
+              </ol>
+              <p style="color:#666; margin-top:0.5rem;">※ 既存ルールのバックアップは「📤 Excelエクスポート」で取れます</p>
+              <p style="color:#666;">※ C列・D列が両方空欄の場合、全メール転送になります</p>
+            </div>
+          </details>
+
+          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">5. 転送の確認</summary>
+            <div style="margin-top:1rem; line-height:1.8;">
+              <ul>
+                <li><strong>ダッシュボード</strong>: 各アカウントの稼働状態と24時間の統計</li>
+                <li><strong>転送履歴</strong>: 転送済み・スキップ・失敗の履歴を確認</li>
+                <li><strong>接続テスト</strong>: アカウント管理画面の「接続テスト」ボタンでIMAPの接続確認</li>
+              </ul>
+            </div>
+          </details>
         </div>
       `;
     }
