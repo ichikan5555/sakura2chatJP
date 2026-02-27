@@ -11,12 +11,12 @@ const schemaPath = path.join(__dirname, 'schema.sql');
 export function runMigrations() {
   const db = getDb();
 
-  // First, migrate existing tables to add new columns if needed
-  migrateExistingTables(db);
-
-  // Then execute full schema (creates new tables and indexes)
+  // First execute full schema (creates tables if they don't exist)
   const schema = readFileSync(schemaPath, 'utf-8');
   db.exec(schema);
+
+  // Then migrate existing tables to add new columns if needed
+  migrateExistingTables(db);
 
   // Ensure admin exists with default password
   const adminExists = db.prepare('SELECT id FROM admin WHERE id = 1').get();

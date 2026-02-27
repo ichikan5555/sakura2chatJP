@@ -3,6 +3,8 @@
  * Lazy-loading wrapper that switches between SQLite and PostgreSQL
  */
 
+import { getDb as getSqliteDb } from './database.sqlite.js';
+
 const usePostgres = process.env.NODE_ENV === 'production' && !!process.env.DATABASE_URL;
 let dbModule = null;
 
@@ -248,12 +250,10 @@ export async function getAllSettings() {
   return db.getAllSettings();
 }
 
-// Compatibility
+// Compatibility - sync function for migrations (SQLite only)
 export function getDb() {
-  // For SQLite compatibility - not used in PostgreSQL
-  if (!usePostgres) {
-    const { DatabaseSync } = require('node:sqlite');
-    // This will be handled by the SQLite module
+  if (usePostgres) {
+    throw new Error('getDb() is only available for SQLite. PostgreSQL uses async getDbModule().');
   }
-  return null;
+  return getSqliteDb();
 }
