@@ -1,4 +1,4 @@
-import { getImapClientForAccount } from './auth.js';
+import { getImapClientForAccount, closeImapClientForAccount } from './auth.js';
 import { parseMessage } from './parser.js';
 import { getPollerState, updatePollerState, isEmailProcessed, recordProcessedEmail, getEnabledRules, getEnabledAccounts } from '../db/database.js';
 import { matchRules } from '../rules/engine.js';
@@ -108,7 +108,22 @@ async function poll(account) {
       // 初回起動時: 過去メールをスキップし、現在の最新UIDを基準にする
       if (lastUid === 0) {
         const status = client.mailbox;
-        const currentUidNext = status?.uidNext;
+        let currentUidNext = status?.uidNext;
+
+        // uidNextが取得できない場合、最後のメールのUIDを取得
+        if (!currentUidNext && status?.exists > 0) {
+          logger.info(`[${account.name}] uidNext not available, fetching last message UID`);
+          const lastMessages = [];
+          for await (const msg of client.fetch('*', { uid: true })) {
+            lastMessages.push(msg);
+            if (lastMessages.length >= 1) break;
+          }
+          if (lastMessages.length > 0) {
+            currentUidNext = lastMessages[0].uid + 1;
+            logger.info(`[${account.name}] Last message UID: ${lastMessages[0].uid}, setting uidNext to ${currentUidNext}`);
+          }
+        }
+
         if (currentUidNext && currentUidNext > 1) {
           lastUid = currentUidNext - 1;
           logger.info(`[${account.name}] First run: skipping past emails, setting last_uid to ${lastUid}`);
@@ -151,7 +166,12 @@ async function poll(account) {
   } catch (err) {
     state.lastError = err.message;
     state.status = 'error';
-    logger.error(`[${account.name}] Poll error: ${err.message}`, err);
+    logger.error(`[${account.name}] Poll error: ${err.message}`);
+    // 接続エラーの場合、クライアントをリセットして次回再接続
+    if (err.code === 'ETIMEOUT' || err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED' || err.message.includes('Socket') || err.message.includes('closed')) {
+      logger.info(`[${account.name}] Resetting IMAP connection for next poll`);
+      await closeImapClientForAccount(account.id).catch(() => {});
+    }
   } finally {
     state.isPolling = false;
   }

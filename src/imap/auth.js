@@ -64,6 +64,18 @@ export async function getImapClientForAccount(account) {
     secure: true,
     auth: { user: account.username, pass: password },
     logger: false,
+    socketTimeout: 5 * 60 * 1000, // 5分のソケットタイムアウト
+  });
+
+  // 切断・エラー時にキャッシュから削除
+  client.on('close', () => {
+    logger.warn(`IMAP connection closed for ${account.name}, removing from cache`);
+    imapClients.delete(clientId);
+  });
+
+  client.on('error', (err) => {
+    logger.warn(`IMAP error for ${account.name}: ${err.message}`);
+    imapClients.delete(clientId);
   });
 
   await client.connect();
