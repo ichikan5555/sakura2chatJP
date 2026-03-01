@@ -183,6 +183,7 @@ async function processMessage(account, message, rules) {
 
   try {
     const parsed = await parseMessage(message.envelope, message.source);
+    parsed.accountEmail = account.username;
     const matchedRules = matchRules(rules, parsed);
 
     if (matchedRules.length === 0) {
