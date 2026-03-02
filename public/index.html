@@ -1446,7 +1446,10 @@
         `).join('');
         app.innerHTML = `
           <div class="card">
-            <h2>💬 ルーム一覧（Chatwork）</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h2>💬 ルーム一覧（Chatwork）</h2>
+              <button onclick="renderRooms(document.getElementById('app'))">🔄 再取得</button>
+            </div>
             <p style="color:#666; margin-bottom:1rem;">Chatwork APIから取得したルーム一覧です。ルール作成時にプルダウンから選択できます。</p>
             <table>
               <thead><tr><th>ルームID</th><th>ルーム名</th><th>種別</th></tr></thead>
