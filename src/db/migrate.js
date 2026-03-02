@@ -64,5 +64,11 @@ function migrateExistingTables(db) {
     db.exec(`ALTER TABLE rules ADD COLUMN user_id INTEGER`);
   }
 
+  // Add last_spam_uid to poller_state if not exists
+  if (!checkColumn('poller_state', 'last_spam_uid')) {
+    logger.info('Adding last_spam_uid column to poller_state table');
+    db.exec(`ALTER TABLE poller_state ADD COLUMN last_spam_uid INTEGER NOT NULL DEFAULT 0`);
+  }
+
   logger.info('Table migrations completed');
 }

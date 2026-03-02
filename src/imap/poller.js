@@ -79,6 +79,24 @@ export function stopAllPollers() {
   logger.info('All pollers stopped');
 }
 
+// スパムフォルダ名の候補（アカウントごとにキャッシュ）
+const SPAM_FOLDER_CANDIDATES = ['[Gmail]/迷惑メール', '[Gmail]/Spam', 'Junk', 'Spam'];
+const spamFolderCache = new Map(); // accountId → folderName or null
+
+async function detectSpamFolder(client, accountId) {
+  if (spamFolderCache.has(accountId)) return spamFolderCache.get(accountId);
+  for (const folder of SPAM_FOLDER_CANDIDATES) {
+    try {
+      const lock = await client.getMailboxLock(folder);
+      lock.release();
+      spamFolderCache.set(accountId, folder);
+      return folder;
+    } catch { /* folder doesn't exist */ }
+  }
+  spamFolderCache.set(accountId, null);
+  return null;
+}
+
 async function poll(account) {
   const accountId = account.id;
   const state = pollerStates.get(accountId);
@@ -90,79 +108,27 @@ async function poll(account) {
     const client = await getImapClientForAccount(account);
     // NOOPで新着メール通知を受け取り、メールボックス状態を更新
     try { await client.noop(); } catch {}
-    const lock = await client.getMailboxLock('INBOX');
 
-    try {
-      // ルール未設定ならメール取得自体をスキップ（last_uidを更新しない）
-      const rules = await getEnabledRules('imap', accountId);
-      if (rules.length === 0) {
-        logger.warn(`[${account.name}] No enabled rules found, skipping poll (last_uid preserved)`);
-        state.lastError = null;
-        state.status = 'running';
-        return; // finally で lock.release() される
-      }
-
-      const pollerState = await getPollerState(accountId);
-      let lastUid = pollerState?.last_uid || 0;
-
-      // 初回起動時: 過去メールをスキップし、現在の最新UIDを基準にする
-      if (lastUid === 0) {
-        const status = client.mailbox;
-        let currentUidNext = status?.uidNext;
-
-        // uidNextが取得できない場合、最後のメールのUIDを取得
-        if (!currentUidNext && status?.exists > 0) {
-          logger.info(`[${account.name}] uidNext not available, fetching last message UID`);
-          const lastMessages = [];
-          for await (const msg of client.fetch('*', { uid: true })) {
-            lastMessages.push(msg);
-            if (lastMessages.length >= 1) break;
-          }
-          if (lastMessages.length > 0) {
-            currentUidNext = lastMessages[0].uid + 1;
-            logger.info(`[${account.name}] Last message UID: ${lastMessages[0].uid}, setting uidNext to ${currentUidNext}`);
-          }
-        }
-
-        if (currentUidNext && currentUidNext > 1) {
-          lastUid = currentUidNext - 1;
-          logger.info(`[${account.name}] First run: skipping past emails, setting last_uid to ${lastUid}`);
-          await updatePollerState(accountId, { last_uid: lastUid, last_poll_at: new Date().toISOString() });
-        }
-      }
-
-      // lastUid以降の新着メールを取得
-      const messages = [];
-      for await (const message of client.fetch({ uid: `${lastUid + 1}:*` }, { envelope: true, source: true })) {
-        messages.push(message);
-      }
-
-      logger.info(`[${account.name}] Poll found ${messages.length} new message(s)`);
-
-      let maxUid = lastUid;
-
-      for (const msg of messages) {
-        const uid = msg.uid;
-        if (uid <= lastUid) continue; // IMAP *範囲が古いメールを返すことがある
-        if (uid > maxUid) maxUid = uid;
-
-        if (await isEmailProcessed(accountId, String(uid))) continue;
-
-        await processMessage(account, msg, rules);
-      }
-
-      // 最新UIDを保存
-      if (maxUid > lastUid) {
-        await updatePollerState(accountId, { last_uid: maxUid, last_poll_at: new Date().toISOString() });
-      } else {
-        await updatePollerState(accountId, { last_poll_at: new Date().toISOString() });
-      }
-
+    // ルール未設定ならメール取得自体をスキップ（last_uidを更新しない）
+    const rules = await getEnabledRules('imap', accountId);
+    if (rules.length === 0) {
+      logger.warn(`[${account.name}] No enabled rules found, skipping poll (last_uid preserved)`);
       state.lastError = null;
       state.status = 'running';
-    } finally {
-      lock.release();
+      return;
     }
+
+    // INBOX をポーリング
+    await pollFolder(client, account, 'INBOX', 'last_uid', '', rules);
+
+    // スパムフォルダをポーリング
+    const spamFolder = await detectSpamFolder(client, accountId);
+    if (spamFolder) {
+      await pollFolder(client, account, spamFolder, 'last_spam_uid', 'SPAM:', rules);
+    }
+
+    state.lastError = null;
+    state.status = 'running';
   } catch (err) {
     state.lastError = err.message;
     state.status = 'error';
@@ -177,9 +143,76 @@ async function poll(account) {
   }
 }
 
-async function processMessage(account, message, rules) {
+async function pollFolder(client, account, folderName, lastUidKey, uidPrefix, rules) {
   const accountId = account.id;
-  const uid = String(message.uid);
+  const lock = await client.getMailboxLock(folderName);
+
+  try {
+    const pollerState = await getPollerState(accountId);
+    let lastUid = pollerState?.[lastUidKey] || 0;
+
+    // 初回起動時: 過去メールをスキップし、現在の最新UIDを基準にする
+    if (lastUid === 0) {
+      const status = client.mailbox;
+      let currentUidNext = status?.uidNext;
+
+      // uidNextが取得できない場合、最後のメールのUIDを取得
+      if (!currentUidNext && status?.exists > 0) {
+        logger.info(`[${account.name}][${folderName}] uidNext not available, fetching last message UID`);
+        const lastMessages = [];
+        for await (const msg of client.fetch('*', { uid: true })) {
+          lastMessages.push(msg);
+          if (lastMessages.length >= 1) break;
+        }
+        if (lastMessages.length > 0) {
+          currentUidNext = lastMessages[0].uid + 1;
+          logger.info(`[${account.name}][${folderName}] Last message UID: ${lastMessages[0].uid}, setting uidNext to ${currentUidNext}`);
+        }
+      }
+
+      if (currentUidNext && currentUidNext > 1) {
+        lastUid = currentUidNext - 1;
+        logger.info(`[${account.name}][${folderName}] First run: skipping past emails, setting ${lastUidKey} to ${lastUid}`);
+        await updatePollerState(accountId, { [lastUidKey]: lastUid, last_poll_at: new Date().toISOString() });
+      }
+    }
+
+    // lastUid以降の新着メールを取得
+    const messages = [];
+    for await (const message of client.fetch({ uid: `${lastUid + 1}:*` }, { envelope: true, source: true })) {
+      messages.push(message);
+    }
+
+    const folderLabel = folderName === 'INBOX' ? '' : `[${folderName}] `;
+    logger.info(`[${account.name}] ${folderLabel}Poll found ${messages.length} new message(s)`);
+
+    let maxUid = lastUid;
+
+    for (const msg of messages) {
+      const uid = msg.uid;
+      if (uid <= lastUid) continue; // IMAP *範囲が古いメールを返すことがある
+      if (uid > maxUid) maxUid = uid;
+
+      const recordUid = uidPrefix + String(uid);
+      if (await isEmailProcessed(accountId, recordUid)) continue;
+
+      await processMessage(account, msg, rules, uidPrefix);
+    }
+
+    // 最新UIDを保存
+    if (maxUid > lastUid) {
+      await updatePollerState(accountId, { [lastUidKey]: maxUid, last_poll_at: new Date().toISOString() });
+    } else {
+      await updatePollerState(accountId, { last_poll_at: new Date().toISOString() });
+    }
+  } finally {
+    lock.release();
+  }
+}
+
+async function processMessage(account, message, rules, uidPrefix = '') {
+  const accountId = account.id;
+  const uid = uidPrefix + String(message.uid);
 
   try {
     const parsed = await parseMessage(message.envelope, message.source);

@@ -329,10 +329,11 @@ export function getPollerState(accountId) {
   return getDb().prepare('SELECT * FROM poller_state WHERE account_id = ?').get(accountId);
 }
 
-export function updatePollerState(accountId, { last_uid, last_poll_at }) {
+export function updatePollerState(accountId, { last_uid, last_spam_uid, last_poll_at }) {
   const fields = [];
   const values = [];
   if (last_uid !== undefined) { fields.push('last_uid = ?'); values.push(last_uid); }
+  if (last_spam_uid !== undefined) { fields.push('last_spam_uid = ?'); values.push(last_spam_uid); }
   if (last_poll_at !== undefined) { fields.push('last_poll_at = ?'); values.push(last_poll_at); }
   if (fields.length === 0) return;
   values.push(accountId);
