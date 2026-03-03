@@ -94,7 +94,7 @@ export function stopAllPollers() {
 }
 
 // スパムフォルダ名の候補（アカウントごとにキャッシュ）
-const SPAM_FOLDER_CANDIDATES = ['[Gmail]/迷惑メール', '[Gmail]/Spam', 'Junk', 'Spam'];
+const SPAM_FOLDER_CANDIDATES = ['[Gmail]/迷惑メール', '[Gmail]/Spam', 'Junk', 'Junk E-mail', 'Spam'];
 const spamFolderCache = new Map(); // accountId → folderName or null
 
 async function detectSpamFolder(client, accountId) {
