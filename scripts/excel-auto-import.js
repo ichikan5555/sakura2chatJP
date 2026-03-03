@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import * as XLSX from 'xlsx';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -13,7 +12,24 @@ const SUCCESS_FOLDER = 'D:\\JP Dropbox\\商品一覧\\メール2チャット\\�
 const FAILED_FOLDER = 'D:\\JP Dropbox\\商品一覧\\メール2チャット\\インポート失敗';
 
 // Database functions (import from project)
-let getAllAccounts, createRule;
+let getAllAccounts, createRule, createAccount;
+let sendMessage, startPollerForAccount, testImapConnection;
+
+const NOTIFY_ROOM_ID = '253108411';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function notifyInfo(message) {
+  try {
+    if (!sendMessage) return;
+    await sendMessage(NOTIFY_ROOM_ID, message);
+    await sleep(1500);
+  } catch (err) {
+    console.error(`[CSV Auto Import] Failed to send notification: ${err.message}`);
+  }
+}
+
+const notifyError = notifyInfo;
 
 // Initialize database functions
 async function initDatabase() {
@@ -22,10 +38,20 @@ async function initDatabase() {
     const dbModule = await import('../src/db/database.js');
     getAllAccounts = dbModule.getAllAccounts;
     createRule = dbModule.createRule;
+    createAccount = dbModule.createAccount;
 
-    console.log('[Excel Auto Import] Database initialized');
+    const cwModule = await import('../src/chatwork/client.js');
+    sendMessage = cwModule.sendMessage;
+
+    const pollerModule = await import('../src/imap/poller.js');
+    startPollerForAccount = pollerModule.startPollerForAccount;
+
+    const authModule = await import('../src/imap/auth.js');
+    testImapConnection = authModule.testImapConnection;
+
+    console.log('[CSV Auto Import] Database initialized');
   } catch (err) {
-    console.error('[Excel Auto Import] Failed to initialize database:', err.message);
+    console.error('[CSV Auto Import] Failed to initialize database:', err.message);
     process.exit(1);
   }
 }
@@ -35,7 +61,7 @@ function ensureFolders() {
   [WATCH_FOLDER, SUCCESS_FOLDER, FAILED_FOLDER].forEach(folder => {
     if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder, { recursive: true });
-      console.log(`[Excel Auto Import] Created folder: ${folder}`);
+      console.log(`[CSV Auto Import] Created folder: ${folder}`);
     }
   });
 }
@@ -75,20 +101,58 @@ function parseSearchSyntax(text, defaultField = 'sender') {
   return conditions;
 }
 
-// Import Excel file
-async function importExcelFile(filePath) {
-  console.log(`[Excel Auto Import] Processing: ${path.basename(filePath)}`);
+// CSV line parser (handles quoted fields)
+function parseCsvLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+// Import CSV file
+async function importCsvFile(filePath) {
+  console.log(`[CSV Auto Import] Processing: ${path.basename(filePath)}`);
 
   try {
-    // Read Excel file
-    const buffer = fs.readFileSync(filePath);
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(ws);
+    // Read CSV file
+    let text = fs.readFileSync(filePath, 'utf-8');
+    // Remove BOM
+    text = text.replace(/^\uFEFF/, '');
 
-    if (data.length === 0) {
-      throw new Error('Excel file is empty');
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+
+    if (lines.length < 2) {
+      throw new Error('CSV file has no data rows');
     }
+
+    // Skip header row
+    const dataLines = lines.slice(1);
 
     // Get all accounts for mapping
     const accounts = await getAllAccounts();
@@ -99,17 +163,19 @@ async function importExcelFile(filePath) {
       errors: [],
     };
 
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
+    for (let i = 0; i < dataLines.length; i++) {
+      const fields = parseCsvLine(dataLines[i]);
 
       try {
-        const name = row['ルール名'];
-        const accountEmail = row['受信メールアドレス'] || '';
-        const sender = row['相手メールアドレス'] || '';
-        const subject = row['受信件名（部分一致）'] || row['受信件名(部分一致)'] || '';
-        const roomId = row['チャットワークルームID'];
+        const name = (fields[0] || '').trim();
+        const accountEmail = (fields[1] || '').trim();
+        const sender = (fields[2] || '').trim();
+        const senderExclude = (fields[3] || '').trim();
+        const subject = (fields[4] || '').trim();
+        const subjectExclude = (fields[5] || '').trim();
+        const roomId = (fields[6] || '').trim();
 
-        if (!name || !name.toString().trim()) {
+        if (!name) {
           results.failed++;
           results.errors.push(`${i + 2}行目: ルール名が必要です`);
           continue;
@@ -123,33 +189,80 @@ async function importExcelFile(filePath) {
 
         // Find account by email
         let accountId = null;
-        if (accountEmail && accountEmail.toString().trim() && accountEmail.toString().trim() !== '全アカウント') {
-          const account = accounts.find(a => a.username === accountEmail.toString().trim());
+        if (accountEmail && accountEmail !== '全アカウント') {
+          let account = accounts.find(a => a.username === accountEmail);
+
+          // monoshare.jp の未登録アカウントは自動登録
+          if (!account && accountEmail.endsWith('@monoshare.jp')) {
+            const newAccount = await createAccount({
+              name: accountEmail,
+              enabled: 1,
+              host: 'monoshare.sakura.ne.jp',
+              port: 993,
+              username: accountEmail,
+              password_mode: 'derive',
+              password_prefix: 'araki0404.',
+              password_suffix: 'junpei0822.',
+              poll_speed: 'normal',
+            });
+            accounts.push(newAccount);
+            console.log(`[CSV Auto Import] Auto-registered account ${accountEmail} (ID: ${newAccount.id})`);
+
+            await notifyInfo(`[info][title]アカウント自動登録[/title]「${accountEmail}」は未登録のため新規登録しました。\n接続テストを実行します...[/info]`);
+
+            // 接続テスト
+            if (testImapConnection) {
+              const testResult = await testImapConnection(newAccount);
+              if (testResult.success) {
+                await notifyInfo(`[info][title]接続テスト成功[/title]「${accountEmail}」の接続テストに成功しました。\nメッセージ数: ${testResult.messageCount}\nメール監視を開始します。[/info]`);
+                if (startPollerForAccount) startPollerForAccount(newAccount);
+              } else {
+                await notifyError(`[info][title]接続テスト失敗[/title]「${accountEmail}」の接続テストに失敗しました。\nエラー: ${testResult.error}\n\nアカウント管理画面で設定を確認してください。[/info]`);
+              }
+            }
+
+            account = newAccount;
+          }
+
           if (account) {
             accountId = account.id;
           }
         }
 
+        // 対象アカウント必須
+        if (!accountId) {
+          const reason = accountEmail ? `「${accountEmail}」は未登録のアカウントです` : '受信メールアドレスが空です';
+          results.failed++;
+          results.errors.push(`${i + 2}行目: ${reason}`);
+          continue;
+        }
+
         // Build conditions (AND search)
         const conditions = [];
-        if (sender && sender.toString().trim()) {
-          const senderConditions = parseSearchSyntax(sender.toString(), 'sender');
+        if (sender) {
+          const senderConditions = parseSearchSyntax(sender, 'sender');
           conditions.push(...senderConditions);
         }
-        if (subject && subject.toString().trim()) {
-          const subjectConditions = parseSearchSyntax(subject.toString(), 'subject');
+        if (senderExclude) {
+          conditions.push({ field: 'sender', operator: 'not_contains', value: senderExclude });
+        }
+        if (subject) {
+          const subjectConditions = parseSearchSyntax(subject, 'subject');
           conditions.push(...subjectConditions);
+        }
+        if (subjectExclude) {
+          conditions.push({ field: 'subject', operator: 'not_contains', value: subjectExclude });
         }
 
         // Create rule
         await createRule({
-          name: name.toString().trim(),
+          name: name,
           enabled: 1,
           source: 'imap',
           account_id: accountId,
           match_type: 'all', // AND search
           conditions,
-          chatwork_room_id: String(roomId).trim(),
+          chatwork_room_id: roomId,
           message_template: '件名：　{subject}\n\n内容：　{body}\n\n日時：　{date}\n\nアカウント：　{username}\n\nルール名：　{rule_name}',
           priority: 0,
         });
@@ -161,7 +274,7 @@ async function importExcelFile(filePath) {
       }
     }
 
-    console.log(`[Excel Auto Import] Results: ${results.success} success, ${results.failed} failed`);
+    console.log(`[CSV Auto Import] Results: ${results.success} success, ${results.failed} failed`);
 
     // Move file based on results
     const fileName = path.basename(filePath);
@@ -170,12 +283,18 @@ async function importExcelFile(filePath) {
     if (results.failed === 0) {
       // All success - move to success folder
       targetFolder = SUCCESS_FOLDER;
-      console.log(`[Excel Auto Import] ✓ All rows imported successfully`);
+      console.log(`[CSV Auto Import] ✓ All rows imported successfully`);
+      if (results.success > 0) {
+        await notifyInfo(`[info][title]CSV自動インポート完了[/title]ファイル: ${path.basename(filePath)}\n${results.success}件のルールを登録しました。[/info]`);
+      }
     } else {
       // Some failed - move to failed folder
       targetFolder = FAILED_FOLDER;
-      console.log(`[Excel Auto Import] ✗ Some rows failed to import`);
+      console.log(`[CSV Auto Import] ✗ Some rows failed to import`);
       results.errors.forEach(err => console.log(`  - ${err}`));
+
+      const errorList = results.errors.slice(0, 10).join('\n');
+      await notifyError(`[info][title]CSV自動インポート エラー[/title]ファイル: ${path.basename(filePath)}\n成功: ${results.success}件 / 失敗: ${results.failed}件\n\n${errorList}${results.errors.length > 10 ? `\n... 他 ${results.errors.length - 10}件` : ''}[/info]`);
     }
 
     const targetPath = path.join(targetFolder, fileName);
@@ -190,11 +309,11 @@ async function importExcelFile(filePath) {
     }
 
     fs.renameSync(filePath, finalTargetPath);
-    console.log(`[Excel Auto Import] Moved to: ${finalTargetPath}`);
+    console.log(`[CSV Auto Import] Moved to: ${finalTargetPath}`);
 
     return results;
   } catch (err) {
-    console.error(`[Excel Auto Import] Error processing file: ${err.message}`);
+    console.error(`[CSV Auto Import] Error processing file: ${err.message}`);
 
     // Move to failed folder
     const fileName = path.basename(filePath);
@@ -209,7 +328,9 @@ async function importExcelFile(filePath) {
     }
 
     fs.renameSync(filePath, finalTargetPath);
-    console.log(`[Excel Auto Import] Moved to failed folder: ${finalTargetPath}`);
+    console.log(`[CSV Auto Import] Moved to failed folder: ${finalTargetPath}`);
+
+    await notifyError(`[info][title]CSV自動インポート エラー[/title]ファイル: ${path.basename(filePath)}\n${err.message}[/info]`);
 
     throw err;
   }
@@ -219,34 +340,42 @@ async function importExcelFile(filePath) {
 async function processExistingFiles() {
   try {
     const files = fs.readdirSync(WATCH_FOLDER);
-    const excelFiles = files.filter(f => /\.(xlsx|xls)$/i.test(f));
+    const csvFiles = files.filter(f => /\.csv$/i.test(f));
 
-    if (excelFiles.length > 0) {
-      console.log(`[Excel Auto Import] Found ${excelFiles.length} existing Excel files`);
+    if (csvFiles.length > 0) {
+      console.log(`[CSV Auto Import] Found ${csvFiles.length} existing CSV files`);
 
-      for (const file of excelFiles) {
+      for (const file of csvFiles) {
         const filePath = path.join(WATCH_FOLDER, file);
         try {
-          await importExcelFile(filePath);
+          await importCsvFile(filePath);
         } catch (err) {
-          console.error(`[Excel Auto Import] Failed to process ${file}:`, err.message);
+          console.error(`[CSV Auto Import] Failed to process ${file}:`, err.message);
         }
       }
     }
   } catch (err) {
-    console.error('[Excel Auto Import] Error processing existing files:', err.message);
+    console.error('[CSV Auto Import] Error processing existing files:', err.message);
   }
 }
 
 // Watch folder for new files
+const processingFiles = new Set(); // 二重処理防止
+
 function startWatching() {
-  console.log(`[Excel Auto Import] Watching folder: ${WATCH_FOLDER}`);
+  console.log(`[CSV Auto Import] Watching folder: ${WATCH_FOLDER}`);
 
   // Use fs.watch for folder monitoring
   const watcher = fs.watch(WATCH_FOLDER, { persistent: true }, async (eventType, filename) => {
-    if (!filename || !/\.(xlsx|xls)$/i.test(filename)) {
+    if (!filename || !/\.csv$/i.test(filename)) {
       return;
     }
+
+    // 同じファイルの二重処理を防止
+    if (processingFiles.has(filename)) {
+      return;
+    }
+    processingFiles.add(filename);
 
     const filePath = path.join(WATCH_FOLDER, filename);
 
@@ -264,24 +393,26 @@ function startWatching() {
           return; // File is still being written
         }
 
-        await importExcelFile(filePath);
+        await importCsvFile(filePath);
       } catch (err) {
-        console.error(`[Excel Auto Import] Error handling file ${filename}:`, err.message);
+        console.error(`[CSV Auto Import] Error handling file ${filename}:`, err.message);
+      } finally {
+        processingFiles.delete(filename);
       }
     }, 2000); // Wait 2 seconds for file to be fully written
   });
 
   watcher.on('error', (err) => {
-    console.error('[Excel Auto Import] Watcher error:', err.message);
+    console.error('[CSV Auto Import] Watcher error:', err.message);
   });
 
-  console.log('[Excel Auto Import] Service started successfully');
+  console.log('[CSV Auto Import] Service started successfully');
 }
 
 // Main function
 async function main() {
   console.log('='.repeat(60));
-  console.log('[Excel Auto Import] Starting service...');
+  console.log('[CSV Auto Import] Starting service...');
   console.log('='.repeat(60));
 
   // Initialize
@@ -297,15 +428,15 @@ async function main() {
 
 // Error handlers
 process.on('uncaughtException', (err) => {
-  console.error('[Excel Auto Import] Uncaught exception:', err);
+  console.error('[CSV Auto Import] Uncaught exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('[Excel Auto Import] Unhandled rejection at:', promise, 'reason:', reason);
+  console.error('[CSV Auto Import] Unhandled rejection at:', promise, 'reason:', reason);
 });
 
 // Start the service
 main().catch(err => {
-  console.error('[Excel Auto Import] Failed to start:', err);
+  console.error('[CSV Auto Import] Failed to start:', err);
   process.exit(1);
 });

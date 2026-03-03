@@ -2,7 +2,22 @@ import { Router } from 'express';
 import { getAllRules, getAllAccounts, createRule } from '../../db/database.js';
 import { requireAuth } from '../middleware/session.js';
 import { logger } from '../../logger.js';
-import * as XLSX from 'xlsx';
+import { sendMessage } from '../../chatwork/client.js';
+
+const NOTIFY_ROOM_ID = '253108411';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function notifyInfo(message) {
+  try {
+    await sendMessage(NOTIFY_ROOM_ID, message);
+    await sleep(1500);
+  } catch (err) {
+    logger.error(`Failed to send notification: ${err.message}`);
+  }
+}
+
+const notifyError = notifyInfo;
 
 const router = Router();
 router.use(requireAuth);
@@ -43,13 +58,57 @@ function parseSearchSyntax(fieldValue, defaultField) {
   return conditions;
 }
 
-// GET /api/rules/bulk/export-excel - Export rules as Excel
-router.get('/export-excel', async (req, res) => {
+// CSV helpers
+function escapeCsvField(value) {
+  const str = value == null ? '' : String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+function parseCsvLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+const CSV_HEADERS = ['ルール名', '受信メールアドレス', '相手メールアドレス', '相手メール除外', '受信件名（部分一致）', '件名除外', 'チャットワークルームID'];
+
+// GET /api/rules/bulk/export-csv - Export rules as CSV
+router.get('/export-csv', async (req, res) => {
   try {
     const rules = await getAllRules();
     const accounts = await getAllAccounts();
 
-    const data = rules.map(rule => {
+    const rows = rules.map(rule => {
       let conditions;
       try {
         conditions = typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions;
@@ -58,57 +117,61 @@ router.get('/export-excel', async (req, res) => {
       }
 
       let senderValue = '';
+      let senderExclude = '';
       let subjectValue = '';
+      let subjectExclude = '';
 
       for (const cond of conditions) {
         if (cond.field === 'sender' && cond.operator === 'contains') {
           senderValue = cond.value;
         }
+        if (cond.field === 'sender' && cond.operator === 'not_contains') {
+          senderExclude = cond.value;
+        }
         if (cond.field === 'subject' && cond.operator === 'contains') {
           subjectValue = cond.value;
+        }
+        if (cond.field === 'subject' && cond.operator === 'not_contains') {
+          subjectExclude = cond.value;
         }
       }
 
       const account = rule.account_id ? accounts.find(a => a.id === rule.account_id) : null;
       const accountUsername = account ? account.username : '全アカウント';
 
-      return {
-        'ルール名': rule.name,
-        '受信メールアドレス': accountUsername,
-        '相手メールアドレス': senderValue,
-        '受信件名（部分一致）': subjectValue,
-        'チャットワークルームID': rule.chatwork_room_id
-      };
+      return [rule.name, accountUsername, senderValue, senderExclude, subjectValue, subjectExclude, rule.chatwork_room_id]
+        .map(escapeCsvField).join(',');
     });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, 'ルール');
+    const csv = '\uFEFF' + CSV_HEADERS.map(escapeCsvField).join(',') + '\n' + rows.join('\n') + '\n';
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="rules.xlsx"');
-    res.send(buffer);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="rules.csv"');
+    res.send(csv);
   } catch (err) {
-    logger.error(`Excel export error: ${err.message}`);
+    logger.error(`CSV export error: ${err.message}`);
     res.status(500).json({ error: 'エクスポートに失敗しました' });
   }
 });
 
-// POST /api/rules/bulk/import-excel - Import rules from Excel
-router.post('/import-excel', async (req, res) => {
+// POST /api/rules/bulk/import-csv - Import rules from CSV
+router.post('/import-csv', async (req, res) => {
   try {
-    const { fileData } = req.body;
-    if (!fileData) {
-      return res.status(400).json({ error: 'ファイルデータがありません' });
+    const { csvText } = req.body;
+    if (!csvText) {
+      return res.status(400).json({ error: 'CSVデータがありません' });
     }
 
-    const buffer = Buffer.from(fileData, 'base64');
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(ws);
+    // Remove BOM and split lines
+    const text = csvText.replace(/^\uFEFF/, '');
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
 
+    if (lines.length < 2) {
+      return res.status(400).json({ error: 'データ行がありません' });
+    }
+
+    // Skip header row
+    const dataLines = lines.slice(1);
     const accounts = await getAllAccounts();
 
     const results = {
@@ -117,17 +180,19 @@ router.post('/import-excel', async (req, res) => {
       errors: [],
     };
 
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
+    for (let i = 0; i < dataLines.length; i++) {
+      const fields = parseCsvLine(dataLines[i]);
 
       try {
-        const name = row['ルール名'];
-        const accountEmail = row['受信メールアドレス'] || '';
-        const sender = row['相手メールアドレス'] || '';
-        const subject = row['受信件名（部分一致）'] || row['受信件名(部分一致)'] || '';
-        const roomId = row['チャットワークルームID'];
+        const name = (fields[0] || '').trim();
+        const accountEmail = (fields[1] || '').trim();
+        const sender = (fields[2] || '').trim();
+        const senderExclude = (fields[3] || '').trim();
+        const subject = (fields[4] || '').trim();
+        const subjectExclude = (fields[5] || '').trim();
+        const roomId = (fields[6] || '').trim();
 
-        if (!name || !name.trim()) {
+        if (!name) {
           results.failed++;
           results.errors.push(`${i + 2}行目: ルール名が必要です`);
           continue;
@@ -139,34 +204,48 @@ router.post('/import-excel', async (req, res) => {
           continue;
         }
 
-        // Find account by email
+        // Find account by email (アカウント未登録ならエラー)
         let accountId = null;
-        if (accountEmail && accountEmail.trim() && accountEmail.trim() !== '全アカウント') {
-          const account = accounts.find(a => a.username === accountEmail.trim());
+        if (accountEmail && accountEmail !== '全アカウント') {
+          const account = accounts.find(a => a.username === accountEmail);
           if (account) {
             accountId = account.id;
           }
         }
 
+        // 対象アカウント必須
+        if (!accountId) {
+          const reason = accountEmail ? `「${accountEmail}」は未登録のアカウントです` : '受信メールアドレスが空です';
+          results.failed++;
+          results.errors.push(`${i + 2}行目: ${reason}`);
+          continue;
+        }
+
         // Build conditions (AND search)
         const conditions = [];
-        if (sender && sender.trim()) {
+        if (sender) {
           const senderConditions = parseSearchSyntax(sender, 'sender');
           conditions.push(...senderConditions);
         }
-        if (subject && subject.trim()) {
+        if (senderExclude) {
+          conditions.push({ field: 'sender', operator: 'not_contains', value: senderExclude });
+        }
+        if (subject) {
           const subjectConditions = parseSearchSyntax(subject, 'subject');
           conditions.push(...subjectConditions);
         }
+        if (subjectExclude) {
+          conditions.push({ field: 'subject', operator: 'not_contains', value: subjectExclude });
+        }
 
         await createRule({
-          name: name.trim(),
+          name,
           enabled: 1,
           source: 'imap',
           account_id: accountId,
           match_type: 'all',
           conditions,
-          chatwork_room_id: String(roomId).trim(),
+          chatwork_room_id: roomId,
           message_template: '件名：　{subject}\n\n内容：　{body}\n\n日時：　{date}\n\nアカウント：　{username}\n\nルール名：　{rule_name}',
           priority: 0,
         });
@@ -178,10 +257,19 @@ router.post('/import-excel', async (req, res) => {
       }
     }
 
-    logger.info(`Excel import: ${results.success} success, ${results.failed} failed`);
+    logger.info(`CSV import: ${results.success} success, ${results.failed} failed`);
+
+    if (results.failed > 0) {
+      const errorList = results.errors.slice(0, 10).join('\n');
+      await notifyError(`[info][title]CSVインポート結果[/title]成功: ${results.success}件 / 失敗: ${results.failed}件\n\n${errorList}${results.errors.length > 10 ? `\n... 他 ${results.errors.length - 10}件` : ''}[/info]`);
+    } else if (results.success > 0) {
+      await notifyInfo(`[info][title]CSVインポート完了[/title]${results.success}件のルールを登録しました。[/info]`);
+    }
+
     res.json(results);
   } catch (err) {
-    logger.error(`Excel import error: ${err.message}`);
+    logger.error(`CSV import error: ${err.message}`);
+    await notifyError(`[info][title]CSVインポート エラー[/title]${err.message}[/info]`);
     res.status(500).json({ error: 'インポートに失敗しました' });
   }
 });

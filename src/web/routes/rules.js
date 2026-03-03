@@ -37,6 +37,7 @@ router.post('/', async (req, res, next) => {
   try {
     const { name, enabled, source, account_id, match_type, conditions, chatwork_room_id, message_template, priority } = req.body;
     if (!name || !chatwork_room_id) return res.status(400).json({ error: 'name and chatwork_room_id are required' });
+    if (!account_id) return res.status(400).json({ error: '対象アカウント（受信メールアドレス）を指定してください' });
 
     // user_id設定：ユーザーは自分のID、管理者は指定可能（未指定ならnull）
     let userId = null;
@@ -84,6 +85,12 @@ router.put('/:id', async (req, res, next) => {
     }
     if (updates.chatwork_room_id !== undefined) {
       updates.chatwork_room_id = String(updates.chatwork_room_id).trim();
+    }
+
+    // 対象アカウント必須チェック
+    const finalAccountId = updates.account_id !== undefined ? updates.account_id : rule.account_id;
+    if (!finalAccountId) {
+      return res.status(400).json({ error: '対象アカウント（受信メールアドレス）を指定してください' });
     }
 
     res.json(await updateRule(Number(req.params.id), updates));

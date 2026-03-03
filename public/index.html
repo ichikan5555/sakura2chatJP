@@ -263,9 +263,9 @@
           <label>ルール名 <input type="text" id="rule-name" required placeholder="例：注文通知"></label>
         </div>
         <div class="form-group">
-          <label>対象アカウント
-            <select id="rule-account-id">
-              <option value="">全アカウント</option>
+          <label>対象アカウント（必須）
+            <select id="rule-account-id" required>
+              <option value="">-- アカウントを選択 --</option>
             </select>
           </label>
         </div>
@@ -281,8 +281,16 @@
             <small style="color: #666;">部分一致で検索（空欄=全て）</small>
           </div>
           <div class="form-group">
+            <label>送信者除外 <input type="text" id="rule-sender-exclude" placeholder="例：noreply@"></label>
+            <small style="color: #666;">この文字列を含む送信者を除外</small>
+          </div>
+          <div class="form-group">
             <label>件名条件 <input type="text" id="rule-subject" placeholder="例：注文"></label>
             <small style="color: #666;">部分一致で検索（空欄=全て）</small>
+          </div>
+          <div class="form-group">
+            <label>件名除外 <input type="text" id="rule-subject-exclude" placeholder="例：テスト"></label>
+            <small style="color: #666;">この文字列を含む件名を除外</small>
           </div>
         </div>
         <div class="form-group">
@@ -1004,7 +1012,9 @@
       if (checked) {
         group.classList.add('hidden');
         document.getElementById('rule-sender').value = '';
+        document.getElementById('rule-sender-exclude').value = '';
         document.getElementById('rule-subject').value = '';
+        document.getElementById('rule-subject-exclude').value = '';
       } else {
         group.classList.remove('hidden');
       }
@@ -1038,7 +1048,7 @@
       ]);
       const accounts = await accountsRes.json();
       const accountSelect = document.getElementById('rule-account-id');
-      accountSelect.innerHTML = '<option value="">全アカウント</option>' +
+      accountSelect.innerHTML = '<option value="">-- アカウントを選択 --</option>' +
         accounts.map(acc => `<option value="${acc.id}">${acc.name} (${acc.username})</option>`).join('');
 
       if (ruleId) {
@@ -1066,16 +1076,20 @@
           document.getElementById('rule-chatwork-room').value = roomId;
         }
 
-        // Set conditions (simple sender/subject)
+        // Set conditions (sender/subject + exclusions)
         let conditions = rule.conditions || [];
         if (typeof conditions === 'string') {
           try { conditions = JSON.parse(conditions); } catch { conditions = []; }
         }
         if (conditions.length > 0) {
-          const senderCond = conditions.find(c => c.field === 'sender');
-          const subjectCond = conditions.find(c => c.field === 'subject');
+          const senderCond = conditions.find(c => c.field === 'sender' && c.operator === 'contains');
+          const senderExclude = conditions.find(c => c.field === 'sender' && c.operator === 'not_contains');
+          const subjectCond = conditions.find(c => c.field === 'subject' && c.operator === 'contains');
+          const subjectExclude = conditions.find(c => c.field === 'subject' && c.operator === 'not_contains');
           if (senderCond) document.getElementById('rule-sender').value = senderCond.value;
+          if (senderExclude) document.getElementById('rule-sender-exclude').value = senderExclude.value;
           if (subjectCond) document.getElementById('rule-subject').value = subjectCond.value;
+          if (subjectExclude) document.getElementById('rule-subject-exclude').value = subjectExclude.value;
           document.getElementById('rule-forward-all').checked = false;
           document.getElementById('rule-conditions-group').classList.remove('hidden');
         } else {
@@ -1115,19 +1129,31 @@
       // Build conditions array
       const conditions = [];
       const sender = document.getElementById('rule-sender').value;
+      const senderExclude = document.getElementById('rule-sender-exclude').value;
       const subject = document.getElementById('rule-subject').value;
+      const subjectExclude = document.getElementById('rule-subject-exclude').value;
 
       if (sender) {
         conditions.push({ field: 'sender', operator: 'contains', value: sender });
       }
+      if (senderExclude) {
+        conditions.push({ field: 'sender', operator: 'not_contains', value: senderExclude });
+      }
       if (subject) {
         conditions.push({ field: 'subject', operator: 'contains', value: subject });
+      }
+      if (subjectExclude) {
+        conditions.push({ field: 'subject', operator: 'not_contains', value: subjectExclude });
       }
 
       const rawAccountId = document.getElementById('rule-account-id').value;
       const chatworkRoomId = getRoomIdFromModal();
       if (!chatworkRoomId) {
         alertDiv.innerHTML = '<div class="alert alert-error">Chatworkルームを選択してください</div>';
+        return;
+      }
+      if (!rawAccountId) {
+        alertDiv.innerHTML = '<div class="alert alert-error">対象アカウント（受信メールアドレス）を指定してください</div>';
         return;
       }
       const data = {
@@ -1159,29 +1185,44 @@
       }
     });
 
-    // Excel Export
-    async function exportRulesExcel() {
+    // CSV Export
+    async function exportRulesCsv() {
       try {
-        const res = await fetch(`${API_BASE}/api/rules/bulk/export-excel`);
+        const res = await fetch(`${API_BASE}/api/rules/bulk/export-csv`);
         const blob = await res.blob();
-
-        // Download Excel file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `rules_${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.download = `rules_${new Date().toISOString().slice(0,10)}.csv`;
         link.click();
-
-        alert('Excelをダウンロードしました');
       } catch (err) {
         alert('エクスポートに失敗しました: ' + err.message);
       }
     }
 
-    // Excel Import
-    function importRulesExcel() {
+    // Rooms Excel Export
+    async function exportRoomsExcel() {
+      try {
+        const res = await fetch(`${API_BASE}/api/chatwork/rooms/export-excel`);
+        if (!res.ok) {
+          const err = await res.json();
+          alert('エクスポートに失敗しました: ' + (err.error || '不明なエラー'));
+          return;
+        }
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `chatwork_rooms_${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.click();
+      } catch (err) {
+        alert('エクスポートに失敗しました: ' + err.message);
+      }
+    }
+
+    // CSV Import
+    function importRulesCsv() {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.xlsx,.xls';
+      input.accept = '.csv';
 
       input.onchange = async (e) => {
         const file = e.target.files[0];
@@ -1190,12 +1231,12 @@
         const reader = new FileReader();
         reader.onload = async (event) => {
           try {
-            const base64Data = event.target.result.split(',')[1];
+            const csvText = event.target.result;
 
-            const res = await fetch(`${API_BASE}/api/rules/bulk/import-excel`, {
+            const res = await fetch(`${API_BASE}/api/rules/bulk/import-csv`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fileData: base64Data })
+              body: JSON.stringify({ csvText })
             });
 
             const result = await res.json();
@@ -1217,7 +1258,7 @@
             alert('インポートに失敗しました: ' + err.message);
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsText(file, 'UTF-8');
       };
 
       input.click();
@@ -1248,10 +1289,14 @@
           try { conditions = JSON.parse(conditions); } catch { conditions = []; }
         }
         const condParts = [];
-        const sender = conditions.find(c => c.field === 'sender');
-        const subject = conditions.find(c => c.field === 'subject');
+        const sender = conditions.find(c => c.field === 'sender' && c.operator !== 'not_contains');
+        const senderEx = conditions.find(c => c.field === 'sender' && c.operator === 'not_contains');
+        const subject = conditions.find(c => c.field === 'subject' && c.operator !== 'not_contains');
+        const subjectEx = conditions.find(c => c.field === 'subject' && c.operator === 'not_contains');
         if (sender) condParts.push('送信者: ' + sender.value);
+        if (senderEx) condParts.push('送信者除外: ' + senderEx.value);
         if (subject) condParts.push('件名: ' + subject.value);
+        if (subjectEx) condParts.push('件名除外: ' + subjectEx.value);
         const condLabel = condParts.length > 0 ? condParts.join(' / ') : '<span class="badge badge-info">全メール転送</span>';
 
         return `
@@ -1276,8 +1321,8 @@
             <h2>📝 転送ルール</h2>
             <div class="btn-group">
               <button onclick="openRuleModal()">➕ ルール追加</button>
-              <button class="secondary" onclick="importRulesExcel()">📥 Excelインポート</button>
-              <button class="secondary" onclick="exportRulesExcel()">📤 Excelエクスポート</button>
+              <button class="secondary" onclick="importRulesCsv()">📥 CSVインポート</button>
+              <button class="secondary" onclick="exportRulesCsv()">📤 CSVエクスポート</button>
             </div>
           </div>
           <table>
@@ -1362,18 +1407,18 @@
           </details>
 
           <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;" open>
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">4. Excelで一括ルール登録</summary>
+            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">4. CSVで一括ルール登録</summary>
             <div style="margin-top:1rem; line-height:1.8;">
-              <p>大量のルールを一度に登録したい場合、Excelファイルでインポートできます。</p>
-              <h4 style="margin:1rem 0 0.5rem;">Excelのフォーマット（5列）</h4>
+              <p>大量のルールを一度に登録したい場合、CSVファイルでインポートできます。</p>
+              <h4 style="margin:1rem 0 0.5rem;">CSVのフォーマット（5列）</h4>
               <table style="font-size:0.9rem; margin-bottom:1rem;">
                 <thead>
                   <tr>
-                    <th>A列: ルール名</th>
-                    <th>B列: 受信メールアドレス</th>
-                    <th>C列: 相手メールアドレス</th>
-                    <th>D列: 受信件名（部分一致）</th>
-                    <th>E列: チャットワークルームID</th>
+                    <th>1列: ルール名</th>
+                    <th>2列: 受信メールアドレス</th>
+                    <th>3列: 相手メールアドレス</th>
+                    <th>4列: 受信件名（部分一致）</th>
+                    <th>5列: チャットワークルームID</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1403,12 +1448,12 @@
               </ul>
               <h4 style="margin:1rem 0 0.5rem;">手順</h4>
               <ol>
-                <li>上のフォーマットでExcelファイル（.xlsx）を作成</li>
-                <li>「転送ルール」→「📥 Excelインポート」ボタン</li>
+                <li>上のフォーマットでCSVファイル（.csv）を作成</li>
+                <li>「転送ルール」→「📥 CSVインポート」ボタン</li>
                 <li>ファイルを選択 → 自動でルールが登録されます</li>
               </ol>
-              <p style="color:#666; margin-top:0.5rem;">※ 既存ルールのバックアップは「📤 Excelエクスポート」で取れます</p>
-              <p style="color:#666;">※ C列・D列が両方空欄の場合、全メール転送になります</p>
+              <p style="color:#666; margin-top:0.5rem;">※ 既存ルールのバックアップは「📤 CSVエクスポート」で取れます</p>
+              <p style="color:#666;">※ 3列・4列が両方空欄の場合、全メール転送になります</p>
             </div>
           </details>
 
@@ -1448,7 +1493,10 @@
           <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
               <h2>💬 ルーム一覧（Chatwork）</h2>
-              <button onclick="renderRooms(document.getElementById('app'))">🔄 再取得</button>
+              <div class="btn-group">
+                <button onclick="renderRooms(document.getElementById('app'))">🔄 再取得</button>
+                <button class="secondary" onclick="exportRoomsExcel()">📤 Excelダウンロード</button>
+              </div>
             </div>
             <p style="color:#666; margin-bottom:1rem;">Chatwork APIから取得したルーム一覧です。ルール作成時にプルダウンから選択できます。</p>
             <table>

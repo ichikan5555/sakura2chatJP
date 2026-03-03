@@ -12,3 +12,6 @@ public/index.html.backup
 *.png
 *.backup
 .env
+
+# Claude Code
+CLAUDE.md

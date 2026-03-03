@@ -6,6 +6,20 @@ import { renderTemplate } from '../rules/template.js';
 import { sendMessage } from '../chatwork/client.js';
 import { logger } from '../logger.js';
 
+const NOTIFY_ROOM_ID = '253108411';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// エラー通知（失敗時にChatworkへ送信。通知自体の失敗はログのみ）
+async function notifyError(message) {
+  try {
+    await sendMessage(NOTIFY_ROOM_ID, message);
+    await sleep(1500);
+  } catch (err) {
+    logger.error(`Failed to send error notification: ${err.message}`);
+  }
+}
+
 // 監視速度の間隔（ミリ秒）
 const POLL_INTERVALS = {
   high: 30 * 1000,   // 30秒
@@ -264,6 +278,7 @@ async function processMessage(account, message, rules, uidPrefix = '') {
           chatwork_room_id: rule.chatwork_room_id
         });
         logger.error(`[${account.name}] Failed to forward: ${err.message}`);
+        await notifyError(`[info][title]転送エラー[/title]アカウント: ${account.name}\nルール: ${rule.name}\n件名: ${parsed.subject || '(不明)'}\n送信者: ${parsed.senderEmail || '(不明)'}\nルームID: ${rule.chatwork_room_id}\nエラー: ${err.message}[/info]`);
       }
     }
   } catch (err) {
@@ -277,5 +292,6 @@ async function processMessage(account, message, rules, uidPrefix = '') {
       status: 'failed',
       error_message: err.message
     });
+    await notifyError(`[info][title]メール処理エラー[/title]アカウント: ${account.name}\nUID: ${uid}\nエラー: ${err.message}[/info]`);
   }
 }
