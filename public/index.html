@@ -90,6 +90,16 @@
     .modal-header h3 { margin: 0; font-size: 16px; }
     .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: #666; }
 
+    /* Rule form spacing */
+    #rule-form .form-group { margin-bottom: 20px; }
+    #rule-form .form-group label { margin-bottom: 6px; font-size: 13px; }
+    #rule-form .form-group input[type=text],
+    #rule-form .form-group select { margin-bottom: 4px; }
+    #rule-form .form-group small { display: block; margin-top: 2px; font-size: 12px; color: #999; line-height: 1.4; }
+    #rule-form .toggle-container { margin-bottom: 16px; }
+    .rule-section { border: 1px solid #eee; border-radius: 8px; padding: 18px; margin-bottom: 20px; background: #fafbfc; }
+    .rule-section-label { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+
     .hidden { display: none; }
 
     /* Login */
@@ -298,69 +308,92 @@
       <form id="rule-form">
         <input type="hidden" id="rule-id">
         <div id="rule-alert"></div>
-        <div class="form-group">
-          <label>ルール名 <input type="text" id="rule-name" placeholder="空欄の場合は自動生成されます"></label>
-        </div>
-        <div class="form-group">
-          <label>対象アカウント（必須）
+
+        <div class="rule-section">
+          <div class="rule-section-label">基本設定</div>
+          <div class="form-group">
+            <label>ルール名</label>
+            <input type="text" id="rule-name" placeholder="空欄の場合は自動生成されます">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>対象アカウント（必須）</label>
             <select id="rule-account-id" required>
               <option value="">-- アカウントを選択 --</option>
             </select>
-          </label>
+          </div>
         </div>
+
         <div class="form-group">
           <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
             <input type="checkbox" id="rule-forward-all" onchange="toggleForwardAll()" style="width:auto; margin:0;">
             全メール転送（条件なしで全て転送）
           </label>
         </div>
+
         <div id="rule-conditions-group">
-          <div class="form-group">
-            <label>送信者条件 <input type="text" id="rule-sender" placeholder="例：@example.com"></label>
-            <small style="color: #666;">部分一致で検索（空欄=全て）</small>
-          </div>
-          <div class="form-group">
-            <label>送信者除外 <input type="text" id="rule-sender-exclude" placeholder="例：noreply@"></label>
-            <small style="color: #666;">この文字列を含む送信者を除外</small>
-          </div>
-          <div class="form-group">
-            <label>件名条件 <input type="text" id="rule-subject" placeholder="例：注文"></label>
-            <small style="color: #666;">部分一致で検索（空欄=全て）</small>
-          </div>
-          <div class="form-group">
-            <label>件名除外 <input type="text" id="rule-subject-exclude" placeholder="例：テスト"></label>
-            <small style="color: #666;">この文字列を含む件名を除外</small>
+          <div class="rule-section">
+            <div class="rule-section-label">転送条件</div>
+            <div class="form-group">
+              <label>送信者条件</label>
+              <input type="text" id="rule-sender" placeholder="例：@example.com">
+              <small>部分一致で検索（空欄=全て）</small>
+            </div>
+            <div class="form-group">
+              <label>送信者除外</label>
+              <input type="text" id="rule-sender-exclude" placeholder="例：noreply@">
+              <small>この文字列を含む送信者を除外</small>
+            </div>
+            <div class="form-group">
+              <label>件名条件</label>
+              <input type="text" id="rule-subject" placeholder="例：注文">
+              <small>部分一致で検索（空欄=全て）</small>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>件名除外</label>
+              <input type="text" id="rule-subject-exclude" placeholder="例：テスト">
+              <small>この文字列を含む件名を除外</small>
+            </div>
           </div>
         </div>
-        <div class="form-group">
-          <label>Chatworkルーム</label>
-          <input type="text" id="rule-room-search" placeholder="ルーム名で検索..." oninput="filterRooms()" style="margin-bottom: 0.5rem;">
-          <select id="rule-chatwork-room-select" onchange="toggleManualRoomInput()" size="1">
-            <option value="">読み込み中...</option>
-          </select>
-          <div id="rule-chatwork-room-manual" class="hidden" style="margin-top: 0.5rem;">
-            <input type="text" id="rule-chatwork-room" placeholder="123456789">
+
+        <div class="rule-section">
+          <div class="rule-section-label">転送先</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Chatworkルーム</label>
+            <input type="text" id="rule-room-search" placeholder="ルーム名で検索..." oninput="filterRooms()">
+            <select id="rule-chatwork-room-select" onchange="toggleManualRoomInput()" size="1" style="margin-top:6px;">
+              <option value="">読み込み中...</option>
+            </select>
+            <div id="rule-chatwork-room-manual" class="hidden" style="margin-top:8px;">
+              <input type="text" id="rule-chatwork-room" placeholder="123456789">
+            </div>
+            <small>ルーム名で絞り込み可能。「手動入力」でルームIDを直接入力</small>
           </div>
-          <small style="color: #666;">ルーム名で絞り込み可能。「手動入力」でルームIDを直接入力</small>
         </div>
+
         <input type="hidden" id="rule-message-template" value="件名：　{subject}&#10;&#10;内容：　{body}&#10;&#10;日時：　{date}&#10;&#10;アカウント：　{username}&#10;&#10;ルール名：　{rule_name}">
-        <div class="toggle-container">
-          <label>添付ファイル転送</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="rule-forward-attachments" checked>
-            <span class="toggle-slider"></span>
-          </label>
-          <span class="toggle-label" id="rule-forward-attachments-label">有効（添付も転送）</span>
+
+        <div class="rule-section">
+          <div class="rule-section-label">オプション</div>
+          <div class="toggle-container">
+            <label>添付ファイル転送</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="rule-forward-attachments" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label" id="rule-forward-attachments-label">有効（添付も転送）</span>
+          </div>
+          <div class="toggle-container" style="margin-bottom:0;">
+            <label>ルール状態</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="rule-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label" id="rule-enabled-label">有効（転送ON）</span>
+          </div>
         </div>
-        <div class="toggle-container">
-          <label>ルール状態</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="rule-enabled" checked>
-            <span class="toggle-slider"></span>
-          </label>
-          <span class="toggle-label" id="rule-enabled-label">有効（転送ON）</span>
-        </div>
-        <div class="btn-group" style="margin-top: 1.5rem;">
+
+        <div class="btn-group" style="margin-top: 8px;">
           <button type="submit">保存</button>
           <button type="button" class="secondary" onclick="closeRuleModal()">キャンセル</button>
         </div>
