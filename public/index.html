@@ -6,78 +6,132 @@
   <title>メール2チャットワークJP</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
-    header { background: #333; color: white; padding: 1rem 2rem; }
-    header h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-    nav { display: flex; gap: 1rem; }
-    nav a { color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 4px; }
-    nav a:hover { background: #555; }
-    nav a.active { background: #0066cc; }
-    main { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; }
-    .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .card h2 { margin-bottom: 1rem; color: #333; }
-    .status { display: flex; gap: 2rem; flex-wrap: wrap; }
-    .status-item { flex: 1; min-width: 200px; }
-    .status-item strong { display: block; color: #666; font-size: 0.875rem; margin-bottom: 0.5rem; }
-    .status-item span { font-size: 1.5rem; font-weight: bold; }
-    .success { color: #28a745; }
-    .error { color: #dc3545; }
-    .warning { color: #ffc107; }
-    button { background: #0066cc; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-    button:hover { background: #0052a3; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+
+    /* Header */
+    .header { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 18px; color: #4a90d9; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-btn { background: none; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; color: #333; text-decoration: none; }
+    .header-btn:hover { background: #f5f5f5; }
+
+    /* Nav tabs */
+    .nav { display: flex; gap: 0; background: #fff; border-bottom: 1px solid #e0e0e0; }
+    .nav a { flex: 1; padding: 12px; text-decoration: none; text-align: center; cursor: pointer; font-size: 14px; color: #333; border-bottom: 3px solid transparent; transition: background .15s; }
+    .nav a.active { color: #4a90d9; border-bottom-color: #4a90d9; font-weight: 600; }
+    .nav a:hover { background: #f9f9f9; }
+
+    /* Content */
+    .content { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+
+    /* Cards */
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 16px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+
+    /* Stats */
+    .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+    .stat-card .num { font-size: 28px; font-weight: 700; }
+    .stat-card .num.success { color: #27ae60; }
+    .stat-card .num.error { color: #e74c3c; }
+    .stat-card .num.warning { color: #f39c12; }
+    .stat-card .label { font-size: 12px; color: #888; margin-top: 4px; }
+
+    /* Forms */
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+    input[type=text], input[type=password], input[type=email], select, textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 12px;
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row > div { flex: 1; }
+
+    /* Buttons */
+    button { padding: 8px 16px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; background: #4a90d9; color: #fff; }
+    button:hover { background: #357abd; }
     button:disabled { background: #ccc; cursor: not-allowed; }
-    button.secondary { background: #6c757d; }
-    button.secondary:hover { background: #5a6268; }
-    button.danger { background: #dc3545; }
-    button.danger:hover { background: #c82333; }
-    input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; margin-top: 0.25rem; }
-    label { display: block; margin-bottom: 1rem; font-weight: 500; }
-    .form-group { margin-bottom: 1.5rem; }
-    .alert { padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
-    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .btn-primary { background: #4a90d9; color: #fff; }
+    .btn-primary:hover { background: #357abd; }
+    button.secondary { background: #95a5a6; color: #fff; }
+    button.secondary:hover { background: #7f8c8d; }
+    button.danger { background: #e74c3c; color: #fff; }
+    button.danger:hover { background: #c0392b; }
+    .btn-success { background: #27ae60; color: #fff; }
+    .btn-success:hover { background: #219a52; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    /* Tables */
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #ddd; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .hidden { display: none; }
-    .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem; font-weight: 500; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+    th { font-weight: 600; color: #555; background: #fafafa; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
     .badge-success { background: #d4edda; color: #155724; }
     .badge-error { background: #f8d7da; color: #721c24; }
     .badge-warning { background: #fff3cd; color: #856404; }
     .badge-info { background: #d1ecf1; color: #0c5460; }
-    .btn-group { display: flex; gap: 0.5rem; }
+
+    /* Alerts */
+    .alert { padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; }
+    .alert-success { background: #d4edda; color: #155724; }
+    .alert-error { background: #f8d7da; color: #721c24; }
+    .alert-info { background: #d1ecf1; color: #0c5460; }
+
+    /* Button group */
+    .btn-group { display: flex; gap: 6px; flex-wrap: nowrap; }
+    .btn-group button { white-space: nowrap; padding: 4px 10px; font-size: 12px; }
+
+    /* Modal */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
     .modal.show { display: flex; align-items: center; justify-content: center; }
-    .modal-content { background: white; border-radius: 8px; padding: 2rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .modal-header h3 { margin: 0; }
+    .modal-content { background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h3 { margin: 0; font-size: 16px; }
     .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: #666; }
 
-    /* ログインページ */
-    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .login-card { background: white; border-radius: 12px; padding: 3rem; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 450px; width: 90%; }
-    .login-card h1 { color: #333; margin-bottom: 0.5rem; font-size: 1.75rem; }
-    .login-card p { color: #666; margin-bottom: 1.5rem; }
-    .login-card .form-group { margin-bottom: 1.5rem; }
-    .login-card label { color: #333; font-weight: 500; }
-    .login-card input { padding: 0.875rem; font-size: 1rem; }
-    .login-card button { width: 100%; padding: 1rem; font-size: 1rem; }
-    .login-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-    .login-tab { flex: 1; padding: 0.75rem; border: 2px solid #ddd; background: white; border-radius: 6px; cursor: pointer; text-align: center; font-weight: 500; transition: all 0.2s; }
-    .login-tab:hover { background: #f8f9fa; }
-    .login-tab.active { background: #0066cc; color: white; border-color: #0066cc; }
+    .hidden { display: none; }
+
+    /* Login */
+    #login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
+    .login-card { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 360px; }
+    .login-card h1 { font-size: 20px; margin-bottom: 8px; text-align: center; color: #4a90d9; }
+    .login-card p { color: #888; margin-bottom: 24px; text-align: center; font-size: 13px; }
+    .login-card .form-group { margin-bottom: 16px; }
+    .login-card label { color: #555; font-weight: 600; font-size: 13px; }
+    .login-card input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 16px; }
+    .login-card button { width: 100%; padding: 10px; font-size: 14px; }
 
     /* Toggle Switch */
-    .toggle-container { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; border: 2px solid #dee2e6; margin-bottom: 1rem; }
-    .toggle-container label { font-weight: 600; font-size: 1.1rem; margin: 0; }
-    .toggle-switch { position: relative; display: inline-block; width: 60px; min-width: 60px; height: 34px; overflow: hidden; }
+    .toggle-container { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fafafa; border-radius: 6px; border: 1px solid #eee; margin-bottom: 12px; }
+    .toggle-container label { font-weight: 600; font-size: 14px; margin: 0; }
+    .toggle-switch { position: relative; display: inline-block; width: 40px; min-width: 40px; height: 22px; overflow: hidden; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; padding: 0; margin: 0; position: absolute; }
-    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-    .toggle-slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-    .toggle-switch input:checked + .toggle-slider { background-color: #28a745; }
-    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(26px); }
-    .toggle-label { font-size: 0.9rem; color: #666; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 22px; transition: .3s; }
+    .toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; }
+    .toggle-switch input:checked + .toggle-slider { background: #4a90d9; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
+    .toggle-label { font-size: 13px; color: #888; }
+
+    /* Empty state */
+    .empty { text-align: center; color: #999; padding: 32px; }
+
+    /* Help page */
+    .help-section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 28px; margin-bottom: 20px; }
+    .help-section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .help-step-badge { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #4a90d9; color: #fff; border-radius: 50%; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+    .help-section-title { font-size: 18px; font-weight: 700; color: #333; }
+    .help-section-icon { font-size: 24px; }
+    .help-step-list { counter-reset: step-counter; padding-left: 0; list-style: none; }
+    .help-step-list li { counter-increment: step-counter; padding: 10px 0 10px 36px; position: relative; border-bottom: 1px solid #f5f5f5; line-height: 1.7; }
+    .help-step-list li:last-child { border-bottom: none; }
+    .help-step-list li::before { content: counter(step-counter); position: absolute; left: 0; top: 12px; width: 24px; height: 24px; background: #e8f0fb; color: #4a90d9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+    .help-tip { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 14px 18px; margin-top: 14px; font-size: 13px; line-height: 1.6; }
+    .help-tip strong { color: #e65100; }
+    .help-warning { background: #fff0f0; border: 1px solid #ffcdd2; border-radius: 8px; padding: 14px 18px; margin-top: 14px; font-size: 13px; color: #c00; line-height: 1.6; }
+    .help-ext-link { display: inline-block; background: #e8f0fb; color: #4a90d9; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; margin-top: 6px; }
+    .help-ext-link:hover { background: #d0e0f5; }
+    .help-sub-title { font-size: 15px; font-weight: 700; color: #555; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #e8f0fb; }
   </style>
 </head>
 <body>
@@ -110,18 +164,21 @@
 
   <!-- メインアプリ -->
   <div id="main-app" class="hidden">
-    <header>
-      <h1>📧 メール2チャットワークJP</h1>
-      <nav id="main-nav">
-        <a href="#/" data-route="/" class="active">ダッシュボード</a>
-        <a href="#/accounts" data-route="/accounts">アカウント管理</a>
-        <a href="#/rules" data-route="/rules">ルール管理</a>
-        <a href="#/logs" data-route="/logs">転送ログ</a>
-        <a href="#/settings" data-route="/settings">設定</a>
-        <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
-      </nav>
-    </header>
-    <main id="app"></main>
+    <div class="header">
+      <h1>メール2チャットワークJP</h1>
+      <div class="header-actions">
+        <button class="header-btn" onclick="navigate('/help')">使い方</button>
+        <button class="header-btn" id="logout-btn">ログアウト</button>
+      </div>
+    </div>
+    <nav class="nav" id="main-nav">
+      <a href="#/" data-route="/" class="active">ダッシュボード</a>
+      <a href="#/settings" data-route="/settings">接続設定</a>
+      <a href="#/accounts" data-route="/accounts">メールアカウント設定</a>
+      <a href="#/rooms" data-route="/rooms">ルーム一覧</a>
+      <a href="#/rules" data-route="/rules">転送ルール</a>
+    </nav>
+    <div class="content" id="app"></div>
   </div>
 
   <!-- アカウント追加・編集モーダル -->
@@ -242,7 +299,7 @@
         <input type="hidden" id="rule-id">
         <div id="rule-alert"></div>
         <div class="form-group">
-          <label>ルール名 <input type="text" id="rule-name" required placeholder="例：注文通知"></label>
+          <label>ルール名 <input type="text" id="rule-name" placeholder="空欄の場合は自動生成されます"></label>
         </div>
         <div class="form-group">
           <label>対象アカウント（必須）
@@ -276,17 +333,25 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Chatworkルーム
-            <select id="rule-chatwork-room-select" onchange="toggleManualRoomInput()">
-              <option value="">読み込み中...</option>
-            </select>
-          </label>
+          <label>Chatworkルーム</label>
+          <input type="text" id="rule-room-search" placeholder="ルーム名で検索..." oninput="filterRooms()" style="margin-bottom: 0.5rem;">
+          <select id="rule-chatwork-room-select" onchange="toggleManualRoomInput()" size="1">
+            <option value="">読み込み中...</option>
+          </select>
           <div id="rule-chatwork-room-manual" class="hidden" style="margin-top: 0.5rem;">
             <input type="text" id="rule-chatwork-room" placeholder="123456789">
           </div>
-          <small style="color: #666;">プルダウンから選択、または「手動入力」でルームIDを直接入力</small>
+          <small style="color: #666;">ルーム名で絞り込み可能。「手動入力」でルームIDを直接入力</small>
         </div>
         <input type="hidden" id="rule-message-template" value="件名：　{subject}&#10;&#10;内容：　{body}&#10;&#10;日時：　{date}&#10;&#10;アカウント：　{username}&#10;&#10;ルール名：　{rule_name}">
+        <div class="toggle-container">
+          <label>添付ファイル転送</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="rule-forward-attachments" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="rule-forward-attachments-label">有効（添付も転送）</span>
+        </div>
         <div class="toggle-container">
           <label>ルール状態</label>
           <label class="toggle-switch">
@@ -393,27 +458,24 @@
     function updateNavigation() {
       const nav = document.getElementById('main-nav');
       nav.innerHTML = `
-        <a href="#/" data-route="/" class="active">ダッシュボード</a>
-        <a href="#/accounts" data-route="/accounts">📧 メールアカウント管理</a>
-        <a href="#/rules" data-route="/rules">📝 転送ルール</a>
-        <a href="#/rooms" data-route="/rooms">💬 ルーム一覧</a>
-        <a href="#/logs" data-route="/logs">📊 転送履歴</a>
-        <a href="#/settings" data-route="/settings">⚙️ 設定</a>
-        <a href="#/help" data-route="/help">📖 使い方</a>
-        <a href="#" id="logout-btn" style="margin-left: auto;">ログアウト</a>
+        <a href="#/" data-route="/">ダッシュボード</a>
+        <a href="#/settings" data-route="/settings">接続設定</a>
+        <a href="#/accounts" data-route="/accounts">メールアカウント設定</a>
+        <a href="#/rooms" data-route="/rooms">ルーム一覧</a>
+        <a href="#/rules" data-route="/rules">転送ルール</a>
       `;
 
-      // ナビゲーションリンクのクリックイベント
-      document.querySelectorAll('nav a[data-route]').forEach(link => {
+      // タブクリックイベント
+      nav.querySelectorAll('a[data-route]').forEach(link => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
-          const route = link.dataset.route;
-          navigate(route);
+          navigate(link.dataset.route);
         });
       });
 
-      // ログアウトボタンの再設定
-      document.getElementById('logout-btn').addEventListener('click', async (e) => {
+      // ログアウトボタン（ヘッダー内、1回だけ設定）
+      const logoutBtn = document.getElementById('logout-btn');
+      logoutBtn.onclick = async (e) => {
         e.preventDefault();
         await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
         isLoggedIn = false;
@@ -421,14 +483,14 @@
         document.getElementById('login-page').style.display = 'flex';
         document.getElementById('login-alert').innerHTML = '';
         backToSendCode();
-      });
+      };
     }
 
     // Router
     function navigate(route) {
       currentRoute = route;
       window.location.hash = route;
-      document.querySelectorAll('nav a[data-route]').forEach(a => {
+      document.querySelectorAll('.nav a[data-route]').forEach(a => {
         a.classList.toggle('active', a.dataset.route === route);
       });
       render();
@@ -441,7 +503,6 @@
         case '/accounts': renderAccounts(app); break;
         case '/rules': renderRules(app); break;
         case '/rooms': renderRooms(app); break;
-        case '/logs': renderLogs(app); break;
         case '/settings': renderSettings(app); break;
         case '/help': renderHelp(app); break;
         default: app.innerHTML = '<div class="card"><h2>404 Not Found</h2></div>';
@@ -450,8 +511,12 @@
 
     // Dashboard
     async function renderDashboard(app) {
-      const res = await fetch(`${API_BASE}/api/status`);
-      const data = await res.json();
+      const [statusRes, logsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/status`),
+        fetch(`${API_BASE}/api/logs?limit=5`)
+      ]);
+      const data = await statusRes.json();
+      const logs = await logsRes.json();
 
       const accountRows = data.accounts.map(acc => `
         <tr>
@@ -463,6 +528,21 @@
         </tr>
       `).join('');
 
+      function formatLogRows(logData) {
+        return logData.map(log => {
+          const utc = log.processed_at.endsWith('Z') ? log.processed_at : log.processed_at + 'Z';
+          const jst = new Date(utc).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+          return '<tr>' +
+            '<td>' + jst + '</td>' +
+            '<td>' + (log.sender || 'N/A') + '</td>' +
+            '<td>' + (log.subject || 'N/A') + '</td>' +
+            '<td><span class="badge ' + (log.status === 'sent' ? 'badge-success' : log.status === 'failed' ? 'badge-error' : 'badge-warning') + '">' + log.status + '</span></td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      const logRows = formatLogRows(logs);
+
       app.innerHTML = `
         <div class="card">
           <h2>アカウント状態</h2>
@@ -473,24 +553,45 @@
             <tbody>${accountRows || '<tr><td colspan="5">アカウントが登録されていません</td></tr>'}</tbody>
           </table>
         </div>
-        <div class="card">
-          <h2>過去24時間の統計</h2>
-          <div class="status">
-            <div class="status-item">
-              <strong>送信成功</strong>
-              <span class="success">${data.stats24h.sent}</span>
-            </div>
-            <div class="status-item">
-              <strong>送信失敗</strong>
-              <span class="error">${data.stats24h.failed}</span>
-            </div>
-            <div class="status-item">
-              <strong>スキップ</strong>
-              <span class="warning">${data.stats24h.skipped}</span>
-            </div>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="num success">${data.stats24h.sent}</div>
+            <div class="label">送信成功</div>
+          </div>
+          <div class="stat-card">
+            <div class="num error">${data.stats24h.failed}</div>
+            <div class="label">送信失敗</div>
+          </div>
+          <div class="stat-card">
+            <div class="num warning">${data.stats24h.skipped}</div>
+            <div class="label">スキップ</div>
           </div>
         </div>
+        <div class="card">
+          <h2>転送履歴</h2>
+          <table>
+            <thead>
+              <tr><th>日時</th><th>送信者</th><th>件名</th><th>状態</th></tr>
+            </thead>
+            <tbody id="dashboard-log-rows">${logRows || '<tr><td colspan="4">ログがありません</td></tr>'}</tbody>
+          </table>
+          ${logs.length >= 5 ? '<button id="show-all-logs-btn" style="margin-top:0.75rem;">全部表示</button>' : ''}
+        </div>
       `;
+
+      const showAllBtn = document.getElementById('show-all-logs-btn');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', async () => {
+          showAllBtn.disabled = true;
+          showAllBtn.textContent = '読み込み中...';
+          try {
+            const allRes = await fetch(`${API_BASE}/api/logs?limit=200`);
+            const allLogs = await allRes.json();
+            document.getElementById('dashboard-log-rows').innerHTML = formatLogRows(allLogs) || '<tr><td colspan="4">ログがありません</td></tr>';
+            showAllBtn.remove();
+          } catch { showAllBtn.disabled = false; showAllBtn.textContent = '全部表示'; }
+        });
+      }
     }
 
     // Accounts
@@ -585,23 +686,6 @@
 
       app.innerHTML = `
         <div class="card">
-          <h2>管理者設定</h2>
-          <div id="password-alert"></div>
-          <form id="password-form">
-            <div class="form-group">
-              <label>現在のパスワード <input type="password" id="current-password" required></label>
-            </div>
-            <div class="form-group">
-              <label>新しいパスワード <input type="password" id="new-password" required></label>
-            </div>
-            <div class="form-group">
-              <label>新しいパスワード（確認） <input type="password" id="new-password-confirm" required></label>
-            </div>
-            <button type="submit">パスワードを変更</button>
-          </form>
-        </div>
-
-        <div class="card">
           <h2>Chatwork 設定</h2>
           <div id="chatwork-alert"></div>
           <form id="chatwork-form">
@@ -611,60 +695,76 @@
               </label>
               <small style="color: #666;">Chatworkの「API Token」ページから取得してください</small>
             </div>
+            <div class="form-group">
+              <label>認証コード送信先ルーム</label>
+              <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.25rem;">
+                <button type="button" id="fetch-auth-rooms-btn" style="white-space:nowrap;">ルーム一覧取得</button>
+                <select id="chatwork-auth-room" style="flex:1;">
+                  <option value="">-- 上のトークンを入力後「ルーム一覧取得」をクリック --</option>
+                  ${settings['chatwork.authRoomId'] ? '<option value="' + settings['chatwork.authRoomId'] + '" selected>ID: ' + settings['chatwork.authRoomId'] + '（保存済み）</option>' : ''}
+                </select>
+              </div>
+              <small style="color: #666;">APIトークン入力 → 「ルーム一覧取得」→ 認証コード送信先を選択してください</small>
+            </div>
             <button type="submit">保存</button>
           </form>
         </div>
 
-        <div class="card">
-          <h2>ポーリング設定</h2>
-          <p>※ポーリング間隔は各アカウント個別に設定できます（アカウント管理画面）</p>
-        </div>
       `;
 
-      // パスワード変更フォーム
-      document.getElementById('password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const alertDiv = document.getElementById('password-alert');
-        const currentPassword = document.getElementById('current-password').value;
-        const newPassword = document.getElementById('new-password').value;
-        const newPasswordConfirm = document.getElementById('new-password-confirm').value;
-
-        if (newPassword !== newPasswordConfirm) {
-          alertDiv.innerHTML = '<div class="alert alert-error">新しいパスワードが一致しません</div>';
+      // ルーム一覧取得ボタン
+      document.getElementById('fetch-auth-rooms-btn').addEventListener('click', async () => {
+        const alertDiv = document.getElementById('chatwork-alert');
+        const token = document.getElementById('chatwork-token').value.trim();
+        if (!token) {
+          alertDiv.innerHTML = '<div class="alert alert-error">先にChatwork APIトークンを入力してください</div>';
           return;
         }
-
+        const btn = document.getElementById('fetch-auth-rooms-btn');
+        btn.disabled = true;
+        btn.textContent = '取得中...';
         try {
-          const res = await fetch(`${API_BASE}/api/auth/password`, {
+          // まずトークンを保存
+          await fetch(`${API_BASE}/api/settings`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentPassword, newPassword })
+            body: JSON.stringify({ 'chatwork.apiToken': token })
           });
-
-          const result = await res.json();
-
-          if (result.success) {
-            alertDiv.innerHTML = '<div class="alert alert-success">パスワードを変更しました</div>';
-            document.getElementById('password-form').reset();
-          } else {
-            alertDiv.innerHTML = `<div class="alert alert-error">${result.error || 'パスワード変更に失敗しました'}</div>`;
-          }
+          // ルーム一覧取得
+          const res = await fetch(`${API_BASE}/api/chatwork/rooms`);
+          if (!res.ok) throw new Error('ルーム取得に失敗しました');
+          const rooms = await res.json();
+          const select = document.getElementById('chatwork-auth-room');
+          const currentVal = select.value;
+          select.innerHTML = '<option value="">-- ルームを選択 --</option>';
+          rooms.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.room_id;
+            opt.textContent = r.name + ' (' + r.typeLabel + ')';
+            if (String(r.room_id) === String(currentVal)) opt.selected = true;
+            select.appendChild(opt);
+          });
+          alertDiv.innerHTML = '<div class="alert alert-success">' + rooms.length + '件のルームを取得しました</div>';
         } catch (err) {
-          alertDiv.innerHTML = '<div class="alert alert-error">エラーが発生しました</div>';
+          alertDiv.innerHTML = '<div class="alert alert-error">' + err.message + '</div>';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'ルーム一覧取得';
         }
       });
 
-      // Chatwork設定フォーム
+      // Chatwork設定保存
       document.getElementById('chatwork-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const alertDiv = document.getElementById('chatwork-alert');
         const token = document.getElementById('chatwork-token').value;
+        const authRoom = document.getElementById('chatwork-auth-room').value;
 
         try {
           const res = await fetch(`${API_BASE}/api/settings`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 'chatwork.apiToken': token })
+            body: JSON.stringify({ 'chatwork.apiToken': token, 'chatwork.authRoomId': authRoom })
           });
 
           const result = await res.json();
@@ -1047,9 +1147,30 @@
       } catch {
         cachedRooms = [];
       }
+      document.getElementById('rule-room-search').value = '';
+      renderRoomOptions(cachedRooms);
+    }
+
+    function renderRoomOptions(rooms) {
+      const select = document.getElementById('rule-chatwork-room-select');
       select.innerHTML = '<option value="">-- ルームを選択 --</option>' +
-        cachedRooms.map(r => `<option value="${r.room_id}">${r.name} (${r.typeLabel})</option>`).join('') +
+        rooms.map(r => `<option value="${r.room_id}">${r.name} (${r.typeLabel})</option>`).join('') +
         '<option value="__manual__">✏️ 手動入力</option>';
+    }
+
+    function filterRooms() {
+      const query = document.getElementById('rule-room-search').value.trim().toLowerCase();
+      if (!cachedRooms) return;
+      const filtered = query
+        ? cachedRooms.filter(r => r.name.toLowerCase().includes(query) || String(r.room_id).includes(query))
+        : cachedRooms;
+      const currentVal = document.getElementById('rule-chatwork-room-select').value;
+      renderRoomOptions(filtered);
+      // 元の選択を復元（フィルタ結果に含まれていれば）
+      const select = document.getElementById('rule-chatwork-room-select');
+      if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+        select.value = currentVal;
+      }
     }
 
     function toggleManualRoomInput() {
@@ -1086,7 +1207,7 @@
       return select.value;
     }
 
-    async function openRuleModal(ruleId = null) {
+    async function openRuleModal(ruleId = null, copyMode = false) {
       const modal = document.getElementById('rule-modal');
       const form = document.getElementById('rule-form');
       const title = document.getElementById('rule-modal-title');
@@ -1097,7 +1218,9 @@
       document.getElementById('rule-chatwork-room-manual').classList.add('hidden');
       document.getElementById('rule-forward-all').checked = false;
       document.getElementById('rule-conditions-group').classList.remove('hidden');
-      title.textContent = 'ルール追加';
+      document.getElementById('rule-forward-attachments').checked = true;
+      document.getElementById('rule-forward-attachments-label').textContent = '有効（添付も転送）';
+      title.textContent = copyMode ? 'ルールをコピー' : 'ルール追加';
 
       // Load accounts and rooms in parallel
       const [accountsRes] = await Promise.all([
@@ -1110,17 +1233,20 @@
         accounts.map(acc => `<option value="${acc.id}">${acc.name} (${acc.username})</option>`).join('');
 
       if (ruleId) {
-        title.textContent = 'ルール編集';
+        if (!copyMode) title.textContent = 'ルール編集';
         const res = await fetch(`${API_BASE}/api/rules/${ruleId}`);
         const rule = await res.json();
 
-        document.getElementById('rule-id').value = rule.id;
-        document.getElementById('rule-name').value = rule.name;
+        document.getElementById('rule-id').value = copyMode ? '' : rule.id;
+        document.getElementById('rule-name').value = copyMode ? rule.name + ' (コピー)' : rule.name;
         document.getElementById('rule-account-id').value = rule.account_id || '';
         document.getElementById('rule-message-template').value = rule.message_template || '';
         document.getElementById('rule-enabled').checked = rule.enabled === 1;
         document.getElementById('rule-enabled-label').textContent =
           rule.enabled === 1 ? '有効（転送ON）' : '無効（転送OFF）';
+        document.getElementById('rule-forward-attachments').checked = rule.forward_attachments !== 0;
+        document.getElementById('rule-forward-attachments-label').textContent =
+          rule.forward_attachments !== 0 ? '有効（添付も転送）' : '無効（添付なし）';
 
         // Set chatwork room: try to match in dropdown, fallback to manual
         const roomSelect = document.getElementById('rule-chatwork-room-select');
@@ -1166,6 +1292,10 @@
 
     async function editRule(ruleId) {
       openRuleModal(ruleId);
+    }
+
+    async function copyRule(ruleId) {
+      openRuleModal(ruleId, true);
     }
 
     async function deleteRule(ruleId, name) {
@@ -1214,15 +1344,17 @@
         alertDiv.innerHTML = '<div class="alert alert-error">対象アカウント（受信メールアドレス）を指定してください</div>';
         return;
       }
+      const ruleName = document.getElementById('rule-name').value.trim() || `ルール_${chatworkRoomId}`;
       const data = {
-        name: document.getElementById('rule-name').value,
+        name: ruleName,
         account_id: rawAccountId ? Number(rawAccountId) : null,
         chatwork_room_id: chatworkRoomId,
         message_template: document.getElementById('rule-message-template').value || '',
         conditions: conditions,
         match_type: 'all',
         source: 'imap',
-        enabled: document.getElementById('rule-enabled').checked ? 1 : 0
+        enabled: document.getElementById('rule-enabled').checked ? 1 : 0,
+        forward_attachments: document.getElementById('rule-forward-attachments').checked ? 1 : 0
       };
 
       const url = id ? `${API_BASE}/api/rules/${id}` : `${API_BASE}/api/rules`;
@@ -1363,10 +1495,12 @@
           <td>${accountLabel}</td>
           <td>${condLabel}</td>
           <td>${roomLabel}</td>
+          <td><span class="badge ${rule.forward_attachments !== 0 ? 'badge-info' : 'badge-warning'}">${rule.forward_attachments !== 0 ? '添付ON' : '添付OFF'}</span></td>
           <td><span class="badge ${rule.enabled ? 'badge-success' : 'badge-error'}">${rule.enabled ? '有効' : '無効'}</span></td>
           <td>
             <div class="btn-group">
               <button class="secondary" onclick="editRule(${rule.id})">編集</button>
+              <button class="secondary" onclick="copyRule(${rule.id})">コピー</button>
               <button class="danger" onclick="deleteRule(${rule.id}, '${rule.name}')">削除</button>
             </div>
           </td>
@@ -1376,11 +1510,11 @@
       app.innerHTML = `
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2>📝 転送ルール</h2>
+            <h2>転送ルール</h2>
             <div class="btn-group">
-              <button onclick="openRuleModal()">➕ ルール追加</button>
-              <button class="secondary" onclick="importRulesCsv()">📥 CSVインポート</button>
-              <button class="secondary" onclick="exportRulesCsv()">📤 CSVエクスポート</button>
+              <button onclick="openRuleModal()">ルール追加</button>
+              <button class="secondary" onclick="importRulesCsv()">CSVインポート</button>
+              <button class="secondary" onclick="exportRulesCsv()">CSVエクスポート</button>
             </div>
           </div>
           <table>
@@ -1390,11 +1524,12 @@
                 <th>対象アカウント</th>
                 <th>条件</th>
                 <th>Chatworkルーム</th>
+                <th>添付</th>
                 <th>状態</th>
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="6">ルールがありません</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="7">ルールがありません</td></tr>'}</tbody>
           </table>
         </div>
       `;
@@ -1403,137 +1538,160 @@
     // Help
     function renderHelp(app) {
       app.innerHTML = `
-        <div class="card">
-          <h2>📖 使い方ガイド</h2>
-          <p style="color:#666; margin-bottom:1.5rem;">メール2チャットワークJPの使い方マニュアルです。</p>
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">使い方ガイド</h2>
+          <p style="color:#888; font-size:14px;">メール2チャットワークJPの使い方マニュアルです。</p>
+        </div>
 
-          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">1. ログイン方法</summary>
-            <div style="margin-top:1rem; line-height:1.8;">
-              <ol>
-                <li>「Chatworkに認証コードを送信」ボタンを押す</li>
-                <li>Chatworkのダイレクトメッセージに<strong>6桁の認証コード</strong>が届く</li>
-                <li>コードを入力して「ログイン」</li>
-              </ol>
-              <p style="color:#666; margin-top:0.5rem;">※ コードの有効期限は5分間です</p>
-            </div>
-          </details>
+        <div class="help-section">
+          <div class="help-section-header">
+            <div class="help-step-badge">1</div>
+            <span class="help-section-icon">&#128100;</span>
+            <span class="help-section-title">ログイン方法</span>
+          </div>
+          <ol class="help-step-list">
+            <li>「Chatworkに認証コードを送信」ボタンを押す</li>
+            <li>Chatworkのダイレクトメッセージに<strong>6桁の認証コード</strong>が届く</li>
+            <li>コードを入力して「ログイン」</li>
+          </ol>
+          <div class="help-tip">&#128161; コードの有効期限は5分間です</div>
+        </div>
 
-          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">2. メールアカウントの追加</summary>
-            <div style="margin-top:1rem; line-height:1.8;">
-              <h4 style="margin-bottom:0.5rem;">さくらメールの場合</h4>
-              <ol>
-                <li>「メールアカウント管理」→「＋ アカウント追加」</li>
-                <li>メールアドレスを入力</li>
-                <li>IMAPサーバー: <code>monoshare.sakura.ne.jp</code>（初期値のまま）</li>
-                <li>パスワードモード: 「自動（社内ルール）」のままでOK</li>
-                <li>「保存」→「接続テスト」で確認</li>
-              </ol>
-              <h4 style="margin:1rem 0 0.5rem;">Gmailの場合</h4>
-              <ol>
-                <li>Gmailの設定でIMAPを有効化<br>
-                    <span style="color:#666;">（歯車 → すべての設定 → メール転送とPOP/IMAP → IMAP有効）</span></li>
-                <li><a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#0066cc;">Googleアプリパスワード</a>を生成<br>
-                    <span style="color:#666;">（2段階認証が必要。アプリ名に「さくら転送」→ 作成 → 16文字のパスワードをコピー）</span></li>
-                <li>「＋ アカウント追加」→ プロバイダー「Gmail」を選択（サーバー情報が自動入力）</li>
-                <li>Gmailアドレスと、コピーしたアプリパスワードを入力</li>
-                <li>「保存」→「接続テスト」で確認</li>
-              </ol>
-              <h4 style="margin:1rem 0 0.5rem;">Zoho Mailの場合</h4>
-              <ol>
-                <li>Zoho Mailの設定でIMAPを有効化<br>
-                    <span style="color:#666;">（歯車 → メール → メールアカウント → IMAPタブ → 有効）</span></li>
-                <li><a href="https://accounts.zoho.jp/home#security/security_pwd" target="_blank" style="color:#0066cc;">Zohoセキュリティ設定</a>でアプリ専用パスワードを生成<br>
-                    <span style="color:#666;">（アプリ名に「さくら転送」→ 生成 → パスワードをコピー）</span></li>
-                <li>「＋ アカウント追加」→ プロバイダー「Zoho JP」を選択（サーバー情報が自動入力）</li>
-                <li>Zohoメールアドレスと、コピーしたアプリパスワードを入力</li>
-                <li>「保存」→「接続テスト」で確認</li>
-              </ol>
-            </div>
-          </details>
+        <div class="help-section">
+          <div class="help-section-header">
+            <div class="help-step-badge">2</div>
+            <span class="help-section-icon">&#128231;</span>
+            <span class="help-section-title">メールアカウントの追加</span>
+          </div>
+          <div class="help-sub-title">さくらメールの場合</div>
+          <ol class="help-step-list">
+            <li>「メールアカウント管理」&#8594;「＋ アカウント追加」</li>
+            <li>メールアドレスを入力</li>
+            <li>IMAPサーバー: <code>monoshare.sakura.ne.jp</code>（初期値のまま）</li>
+            <li>パスワードモード: 「自動（社内ルール）」のままでOK</li>
+            <li>「保存」&#8594;「接続テスト」で確認</li>
+          </ol>
+          <div class="help-sub-title">Gmailの場合</div>
+          <ol class="help-step-list">
+            <li>Gmailの設定でIMAPを有効化<br><span style="color:#666;">（歯車 &#8594; すべての設定 &#8594; メール転送とPOP/IMAP &#8594; IMAP有効）</span></li>
+            <li>Googleアプリパスワードを生成<br><span style="color:#666;">（2段階認証が必要。アプリ名に「さくら転送」&#8594; 作成 &#8594; 16文字のパスワードをコピー）</span><br><a href="https://myaccount.google.com/apppasswords" target="_blank" class="help-ext-link">Googleアプリパスワード設定 &#8594;</a></li>
+            <li>「＋ アカウント追加」&#8594; プロバイダー「Gmail」を選択（サーバー情報が自動入力）</li>
+            <li>Gmailアドレスと、コピーしたアプリパスワードを入力</li>
+            <li>「保存」&#8594;「接続テスト」で確認</li>
+          </ol>
+          <div class="help-sub-title">Zoho Mailの場合</div>
+          <ol class="help-step-list">
+            <li>Zoho Mailの設定でIMAPを有効化<br><span style="color:#666;">（歯車 &#8594; メール &#8594; メールアカウント &#8594; IMAPタブ &#8594; 有効）</span></li>
+            <li>Zohoセキュリティ設定でアプリ専用パスワードを生成<br><span style="color:#666;">（アプリ名に「さくら転送」&#8594; 生成 &#8594; パスワードをコピー）</span><br><a href="https://accounts.zoho.jp/home#security/security_pwd" target="_blank" class="help-ext-link">Zohoセキュリティ設定 &#8594;</a></li>
+            <li>「＋ アカウント追加」&#8594; プロバイダー「Zoho JP」を選択（サーバー情報が自動入力）</li>
+            <li>Zohoメールアドレスと、コピーしたアプリパスワードを入力</li>
+            <li>「保存」&#8594;「接続テスト」で確認</li>
+          </ol>
+        </div>
 
-          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">3. 転送ルールの作成</summary>
-            <div style="margin-top:1rem; line-height:1.8;">
-              <ol>
-                <li>「転送ルール」→「➕ ルール追加」</li>
-                <li><strong>ルール名</strong>: 分かりやすい名前（例：「注文通知」）</li>
-                <li><strong>対象アカウント</strong>: どのメールアドレスに届いたメールを転送するか</li>
-                <li><strong>全メール転送</strong>: チェックすると全てのメールを転送</li>
-                <li>チェックしない場合は条件を指定:
-                  <ul>
-                    <li><strong>送信者条件</strong>: メール送信者のアドレス（部分一致）</li>
-                    <li><strong>件名条件</strong>: メール件名のキーワード（部分一致）</li>
-                  </ul>
-                </li>
-                <li><strong>Chatworkルーム</strong>: プルダウンから転送先のルームを選択</li>
-                <li>「保存」</li>
-              </ol>
-            </div>
-          </details>
-
-          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;" open>
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">4. CSVで一括ルール登録</summary>
-            <div style="margin-top:1rem; line-height:1.8;">
-              <p>大量のルールを一度に登録したい場合、CSVファイルでインポートできます。</p>
-              <h4 style="margin:1rem 0 0.5rem;">CSVのフォーマット（5列）</h4>
-              <table style="font-size:0.9rem; margin-bottom:1rem;">
-                <thead>
-                  <tr>
-                    <th>1列: ルール名</th>
-                    <th>2列: 受信メールアドレス</th>
-                    <th>3列: 相手メールアドレス</th>
-                    <th>4列: 受信件名（部分一致）</th>
-                    <th>5列: チャットワークルームID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>注文通知</td>
-                    <td>shop@example.com</td>
-                    <td>@amazon.co.jp</td>
-                    <td>注文</td>
-                    <td>123456789</td>
-                  </tr>
-                  <tr>
-                    <td>全メール転送</td>
-                    <td>info@example.com</td>
-                    <td><span style="color:#999;">（空欄）</span></td>
-                    <td><span style="color:#999;">（空欄）</span></td>
-                    <td>987654321</td>
-                  </tr>
-                </tbody>
-              </table>
-              <h4 style="margin:0.5rem 0;">各列の説明</h4>
-              <ul>
-                <li><strong>ルール名</strong>（必須）: ルールの名前</li>
-                <li><strong>受信メールアドレス</strong>: 監視対象のメールアドレス。空欄または「全アカウント」で全て対象</li>
-                <li><strong>相手メールアドレス</strong>: 送信者の絞り込み（部分一致）。空欄＝全送信者</li>
-                <li><strong>受信件名（部分一致）</strong>: 件名の絞り込み。空欄＝全件名</li>
-                <li><strong>チャットワークルームID</strong>（必須）: 転送先のルームID（「ルーム一覧」画面で確認できます）</li>
+        <div class="help-section">
+          <div class="help-section-header">
+            <div class="help-step-badge">3</div>
+            <span class="help-section-icon">&#128203;</span>
+            <span class="help-section-title">転送ルールの作成</span>
+          </div>
+          <ol class="help-step-list">
+            <li>「転送ルール」&#8594;「&#10133; ルール追加」</li>
+            <li><strong>ルール名</strong>: 分かりやすい名前（例：「注文通知」）。空欄の場合は自動生成されます</li>
+            <li><strong>対象アカウント</strong>: どのメールアドレスに届いたメールを転送するか</li>
+            <li><strong>全メール転送</strong>: チェックすると全てのメールを転送</li>
+            <li>チェックしない場合は条件を指定:
+              <ul style="margin-top:6px; padding-left:20px;">
+                <li><strong>送信者条件</strong>: メール送信者のアドレス（部分一致）</li>
+                <li><strong>件名条件</strong>: メール件名のキーワード（部分一致）</li>
               </ul>
-              <h4 style="margin:1rem 0 0.5rem;">手順</h4>
-              <ol>
-                <li>上のフォーマットでCSVファイル（.csv）を作成</li>
-                <li>「転送ルール」→「📥 CSVインポート」ボタン</li>
-                <li>ファイルを選択 → 自動でルールが登録されます</li>
-              </ol>
-              <p style="color:#666; margin-top:0.5rem;">※ 既存ルールのバックアップは「📤 CSVエクスポート」で取れます</p>
-              <p style="color:#666;">※ 3列・4列が両方空欄の場合、全メール転送になります</p>
-            </div>
-          </details>
+            </li>
+            <li><strong>Chatworkルーム</strong>: プルダウンから転送先のルームを選択</li>
+            <li><strong>添付ファイル転送</strong>: ONにするとメールの添付ファイルもChatworkにアップロード（5MB以下）</li>
+            <li>「保存」</li>
+          </ol>
+        </div>
 
-          <details style="margin-bottom:1rem; border:1px solid #ddd; border-radius:6px; padding:1rem;">
-            <summary style="font-weight:bold; cursor:pointer; font-size:1.1rem;">5. 転送の確認</summary>
-            <div style="margin-top:1rem; line-height:1.8;">
-              <ul>
-                <li><strong>ダッシュボード</strong>: 各アカウントの稼働状態と24時間の統計</li>
-                <li><strong>転送履歴</strong>: 転送済み・スキップ・失敗の履歴を確認</li>
-                <li><strong>接続テスト</strong>: アカウント管理画面の「接続テスト」ボタンでIMAPの接続確認</li>
-              </ul>
-            </div>
-          </details>
+        <div class="help-section">
+          <div class="help-section-header">
+            <div class="help-step-badge">4</div>
+            <span class="help-section-icon">&#128229;</span>
+            <span class="help-section-title">CSVで一括ルール登録</span>
+          </div>
+          <p style="line-height:1.7;">大量のルールを一度に登録したい場合、CSVファイルでインポートできます。</p>
+          <div class="help-sub-title">CSVのフォーマット（8列）</div>
+          <div style="overflow-x:auto;">
+            <table style="font-size:0.9rem; margin-bottom:1rem;">
+              <thead>
+                <tr>
+                  <th>1列: ルール名</th>
+                  <th>2列: 受信メールアドレス</th>
+                  <th>3列: 相手メールアドレス</th>
+                  <th>4列: 相手メール除外</th>
+                  <th>5列: 受信件名（部分一致）</th>
+                  <th>6列: 件名除外</th>
+                  <th>7列: チャットワークルームID</th>
+                  <th>8列: 添付転送</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>注文通知</td>
+                  <td>shop@example.com</td>
+                  <td>@amazon.co.jp</td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td>注文</td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td>123456789</td>
+                  <td>1</td>
+                </tr>
+                <tr>
+                  <td><span style="color:#999;">（空欄＝自動生成）</span></td>
+                  <td>info@example.com</td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td><span style="color:#999;">（空欄）</span></td>
+                  <td>987654321</td>
+                  <td><span style="color:#999;">（空欄＝1）</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="help-sub-title">各列の説明</div>
+          <ul style="padding-left:20px; line-height:1.8; font-size:14px;">
+            <li><strong>ルール名</strong>（任意）: ルールの名前。空欄の場合は自動生成されます</li>
+            <li><strong>受信メールアドレス</strong>（必須）: 監視対象のメールアドレス</li>
+            <li><strong>相手メールアドレス</strong>: 送信者の絞り込み（部分一致）。空欄＝全送信者</li>
+            <li><strong>相手メール除外</strong>: この文字列を含む送信者を除外</li>
+            <li><strong>受信件名（部分一致）</strong>: 件名の絞り込み。空欄＝全件名</li>
+            <li><strong>件名除外</strong>: この文字列を含む件名を除外</li>
+            <li><strong>チャットワークルームID</strong>（必須）: 転送先のルームID（「ルーム一覧」画面で確認できます）</li>
+            <li><strong>添付転送</strong>: 1＝添付ファイルも転送、0＝添付なし。空欄の場合はデフォルト1（転送する）</li>
+          </ul>
+          <div class="help-sub-title">手順</div>
+          <ol class="help-step-list">
+            <li>上のフォーマットでCSVファイル（.csv）を作成</li>
+            <li>「転送ルール」&#8594;「&#128229; CSVインポート」ボタン</li>
+            <li>ファイルを選択 &#8594; 自動でルールが登録されます</li>
+          </ol>
+          <div class="help-tip">
+            &#128161; 既存ルールのバックアップは「&#128228; CSVエクスポート」で取れます<br>
+            &#128161; 3列・4列が両方空欄の場合、全メール転送になります
+          </div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-section-header">
+            <div class="help-step-badge">5</div>
+            <span class="help-section-icon">&#9989;</span>
+            <span class="help-section-title">転送の確認</span>
+          </div>
+          <ul style="padding-left:20px; line-height:1.8; font-size:14px;">
+            <li><strong>ダッシュボード</strong>: 各アカウントの稼働状態と24時間の統計</li>
+            <li><strong>転送履歴</strong>: 転送済み・スキップ・失敗の履歴を確認</li>
+            <li><strong>接続テスト</strong>: アカウント管理画面の「接続テスト」ボタンでIMAPの接続確認</li>
+          </ul>
         </div>
       `;
     }
@@ -1622,6 +1780,10 @@
     document.getElementById('rule-enabled').addEventListener('change', (e) => {
       document.getElementById('rule-enabled-label').textContent =
         e.target.checked ? '有効（転送ON）' : '無効（転送OFF）';
+    });
+    document.getElementById('rule-forward-attachments').addEventListener('change', (e) => {
+      document.getElementById('rule-forward-attachments-label').textContent =
+        e.target.checked ? '有効（添付も転送）' : '無効（添付なし）';
     });
 
     // Check auth on page load
